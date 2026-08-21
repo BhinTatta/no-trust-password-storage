@@ -1,11 +1,11 @@
 # No-Trust Password Storage
 
-A self-custodied, zero-knowledge password manager for Android. One master
-password, set once, that nobody — not the developer, not a support team,
-not Google, not you if you forget it — can ever recover. Everything is
-encrypted on-device before it touches disk or the network, and the only
-sync destination is *your own* Google Drive, which only ever sees
-ciphertext.
+A self-custodied, zero-knowledge password manager, built Android-first
+with a straight path to iOS. One master password, set once, that nobody —
+not the developer, not a support team, not Google/Apple, not you if you
+forget it — can ever recover. Everything is encrypted on-device before it
+touches disk or the network, and the only sync destination is *your own*
+Google Drive, which only ever sees ciphertext.
 
 ## Why
 
@@ -60,22 +60,36 @@ losing the vault — same trade-off as a self-custodied crypto wallet.
 - Optional recovery phrase (your own paper backup, never transmitted anywhere)
 
 See [`docs/SECURITY.md`](docs/SECURITY.md) for the full threat model and
-crypto design, [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phased build
-plan and performance notes, and [`docs/UI_DESIGN.md`](docs/UI_DESIGN.md)
-for the visual direction.
+crypto design, [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the
+cross-platform (KMP) module layout, [`docs/ROADMAP.md`](docs/ROADMAP.md)
+for the phased build plan and performance notes,
+[`docs/UI_DESIGN.md`](docs/UI_DESIGN.md) for the visual direction, and
+[`docs/TESTING.md`](docs/TESTING.md) for how correctness is verified
+without relying on manual debugging.
 
 ## Tech stack
 
+Built as **Kotlin Multiplatform (KMP)**: the crypto/vault/sync logic is
+written once in a shared module and used by both the Android app today
+and an iOS app later, while anything that must touch platform-specific
+secure hardware is implemented natively per platform (there is no
+portable API for "the phone's secure enclave" — Android and iOS expose
+genuinely different hardware primitives, so this layer is intentionally
+platform-specific rather than papered over by a framework).
+
 | Layer | Choice | Why |
 |---|---|---|
-| UI | Kotlin + Jetpack Compose | Modern native Android UI, full control over look |
-| Local storage | SQLCipher (SQLite + transparent AES-256 page encryption) | Indexed encrypted search, syncs as one opaque file |
-| KDF | Argon2id (argon2kt / BouncyCastle) | Memory-hard, GPU/ASIC-resistant password stretching |
-| Key storage | Android Keystore (StrongBox when available) | Hardware-backed key for the biometric browse-tier |
-| Biometrics | androidx.biometric `BiometricPrompt` | Standard, supports `CryptoObject` binding |
-| Sync | Google Drive REST v3, `drive.file` scope | Least-privilege — app only sees files it created |
-| Background sync | WorkManager | Reliable, battery-aware background jobs |
-| OCR | ML Kit Text Recognition (on-device) | No cloud call — text never leaves the device |
+| Shared core | Kotlin Multiplatform module | One implementation of the vault format, crypto, and sync logic — no second copy to keep in sync (and no second copy to introduce a second set of bugs) when iOS arrives |
+| UI (Android) | Jetpack Compose | Modern native Android UI, full control over look |
+| UI (iOS, later) | SwiftUI | Native look/feel and native biometric UX on iOS, calling into the shared core |
+| Local storage | SQLDelight + SQLCipher | Multiplatform, type-safe SQL; SQLCipher gives transparent AES-256 page encryption on both platforms; syncs as one opaque file |
+| Crypto primitives | libsodium (via a Kotlin/Native multiplatform binding) | One well-audited, battle-tested crypto library on both platforms instead of two different platform-native crypto stacks that could drift or be misused differently |
+| KDF | Argon2id (via the same libsodium binding) | Memory-hard, GPU/ASIC-resistant password stretching, identical behavior on both platforms |
+| Hardware-backed key storage | Android Keystore (StrongBox when available) / iOS Secure Enclave + Keychain | Platform-specific by necessity — this is the one layer that can't be shared |
+| Biometrics | androidx.biometric `BiometricPrompt` / iOS `LocalAuthentication` | Platform-native biometric prompts, both bound to the platform's own secure key store |
+| Sync | Google Drive REST v3, `drive.file` scope | Least-privilege, works identically from either platform's shared sync code |
+| Background sync | WorkManager (Android) / `BGTaskScheduler` (iOS, later) | Platform-native reliable background execution |
+| OCR | ML Kit Text Recognition (Android) / Vision framework (iOS, later), both on-device | No cloud call — text never leaves the device on either platform |
 
 ## Architecture — two-tier access model
 

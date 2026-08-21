@@ -2,10 +2,18 @@
 
 ## Phased build plan
 
-### Phase 1 — MVP (local only)
+### Phase 0 — Shared core scaffolding
+- Set up the KMP `shared` module (see `docs/ARCHITECTURE.md`): libsodium
+  binding, Argon2id KDF, envelope encryption, SQLDelight schema.
+- Known-answer tests + round-trip property tests for every primitive
+  before any UI exists (see `docs/TESTING.md`) — the crypto core is right,
+  and proven right, before anything is built on top of it.
+
+### Phase 1 — MVP (Android, local only)
 - Vault creation: set master password, generate salt + secrets DEK, show
   optional recovery phrase once.
-- Manual CRUD entries (site name, username, password, alias, notes, tags).
+- Manual CRUD entries (site name, username, password, alias, notes, tags),
+  built on the shared module from Phase 0.
 - Browse-tier list + search (alias/site name only) — no biometrics yet,
   gated by master password for now.
 - Per-entry reveal flow: master password prompt → decrypt just that entry
@@ -41,6 +49,13 @@
   encryption, Keystore usage, decoy-vault isolation).
 - Consider open-sourcing the crypto/storage layer specifically so
   "no backdoor" is verifiable, not just claimed.
+
+### Phase 7 — iOS (later, when/if needed)
+- Add `iosApp` (SwiftUI) and the `iosMain` `actual` implementations for
+  Secure Enclave/Keychain key wrapping and `LocalAuthentication` biometrics.
+- Reuses the entire `shared` module — vault format, crypto, sync logic —
+  unchanged. The existing shared test suite (`docs/TESTING.md`) runs
+  against the same code, so this phase is additive, not a rewrite.
 
 ## Performance notes
 
