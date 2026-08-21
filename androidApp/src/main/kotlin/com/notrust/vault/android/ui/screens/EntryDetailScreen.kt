@@ -17,7 +17,10 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -27,16 +30,21 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.notrust.vault.android.ui.theme.VaultColors
+import com.notrust.vault.android.ui.theme.VaultLabelTextStyle
+import com.notrust.vault.android.ui.theme.vaultFieldColors
 import com.notrust.vault.model.BrowseIndexItem
 import com.notrust.vault.model.EntrySecrets
 
@@ -55,9 +63,10 @@ fun EntryDetailScreen(
     onBack: () -> Unit
 ) {
     Scaffold(
+        containerColor = VaultColors.Void,
         topBar = {
             TopAppBar(
-                title = { Text(item.alias, fontFamily = FontFamily.Monospace) },
+                title = { Text(item.alias, fontFamily = FontFamily.Monospace, color = VaultColors.Signal) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -76,12 +85,26 @@ fun EntryDetailScreen(
                     IconButton(onClick = onDelete) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = VaultColors.Void)
             )
         }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-            Text(item.siteName, style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(item.siteName, style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace, color = VaultColors.TextMuted)
+            if (item.tags.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    item.tags.forEach { tag ->
+                        AssistChip(
+                            onClick = {},
+                            label = { Text(tag) },
+                            colors = AssistChipDefaults.assistChipColors(containerColor = VaultColors.SurfaceRaised),
+                            border = null
+                        )
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(24.dp))
 
             if (revealed == null) {
@@ -102,7 +125,7 @@ fun EntryDetailScreen(
 private fun RevealPrompt(isRevealing: Boolean, error: String?, onRevealRequest: (String) -> Unit) {
     var password by remember { mutableStateOf("") }
 
-    Text("Username and password are hidden. Enter your master password to view them.")
+    Text("Username and password are hidden. Enter your master password to view them.", color = VaultColors.TextMuted)
     Spacer(modifier = Modifier.height(12.dp))
     OutlinedTextField(
         value = password,
@@ -112,17 +135,23 @@ private fun RevealPrompt(isRevealing: Boolean, error: String?, onRevealRequest: 
         visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         isError = error != null,
+        colors = vaultFieldColors(),
         modifier = Modifier.fillMaxWidth()
     )
     if (error != null) {
-        Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
+        Text(error, color = VaultColors.Danger, modifier = Modifier.padding(top = 8.dp))
     }
     Button(
         onClick = { onRevealRequest(password) },
         enabled = !isRevealing && password.isNotEmpty(),
+        colors = ButtonDefaults.buttonColors(containerColor = VaultColors.Signal, contentColor = Color(0xFF00201C)),
         modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
     ) {
-        if (isRevealing) CircularProgressIndicator(modifier = Modifier.size(20.dp)) else Text("Reveal")
+        if (isRevealing) {
+            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color(0xFF00201C))
+        } else {
+            Text("REVEAL", style = VaultLabelTextStyle.copy(color = Color(0xFF00201C)))
+        }
     }
 }
 
@@ -137,18 +166,18 @@ private fun RevealedSecrets(
         Text(
             "Hiding again in ${remainingSeconds}s",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary
+            color = VaultColors.Signal
         )
         Spacer(modifier = Modifier.height(12.dp))
     }
 
     LabeledSecretRow(label = "Username", value = secrets.username, onCopy = onCopyUsername)
-    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = VaultColors.Hairline)
     LabeledSecretRow(label = "Password", value = secrets.password, onCopy = onCopyPassword)
 
     if (secrets.notes.isNotBlank()) {
         Spacer(modifier = Modifier.height(20.dp))
-        Text("Notes", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Notes", style = MaterialTheme.typography.labelLarge, color = VaultColors.TextMuted)
         Text(secrets.notes, fontFamily = FontFamily.Monospace)
     }
 }
@@ -156,7 +185,7 @@ private fun RevealedSecrets(
 @Composable
 private fun LabeledSecretRow(label: String, value: String, onCopy: (String) -> Unit) {
     Column {
-        Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, style = MaterialTheme.typography.labelLarge, color = VaultColors.TextMuted)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween

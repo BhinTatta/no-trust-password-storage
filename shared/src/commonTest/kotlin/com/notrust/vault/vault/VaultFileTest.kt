@@ -93,6 +93,48 @@ class VaultFileTest {
     }
 
     @Test
+    fun tags_areSearchableAndFilterable() = runTest {
+        VaultCrypto.ensureInitialized()
+        val file = VaultFile.createNew(masterPassword)
+        val session = VaultSession.unlock(file, masterPassword)
+        session.upsertSecret(masterPassword, null, "Chase", "chase.com", EntrySecrets("u1", "p1"), tags = listOf("Banking"))
+        session.upsertSecret(masterPassword, null, "Work Gmail", "gmail.com", EntrySecrets("u2", "p2"), tags = listOf("Work", "Google"))
+        session.upsertSecret(masterPassword, null, "Personal note", "n/a", EntrySecrets("u3", "p3"))
+
+        assertEquals(setOf("Banking", "Google", "Work"), session.allTags().toSet())
+        assertEquals(1, session.filterByTag("Banking").size)
+        assertEquals(1, session.search("google").size)
+        assertEquals("Work Gmail", session.search("google").single().alias)
+    }
+
+    @Test
+    fun renameItem_canUpdateTagsWithoutTouchingSecrets() = runTest {
+        VaultCrypto.ensureInitialized()
+        val file = VaultFile.createNew(masterPassword)
+        val session = VaultSession.unlock(file, masterPassword)
+        session.upsertSecret(masterPassword, null, "alias", "site", EntrySecrets("u", "p"), tags = listOf("Work"))
+        val id = session.list().single().id
+
+        session.renameItem(id, "alias", "site", newTags = listOf("Personal", "Custom Tag"))
+
+        assertEquals(listOf("Personal", "Custom Tag"), session.list().single().tags)
+        assertEquals(EntrySecrets("u", "p"), session.reveal(masterPassword, id))
+    }
+
+    @Test
+    fun renameItem_keepsExistingTagsWhenNoneGiven() = runTest {
+        VaultCrypto.ensureInitialized()
+        val file = VaultFile.createNew(masterPassword)
+        val session = VaultSession.unlock(file, masterPassword)
+        session.upsertSecret(masterPassword, null, "alias", "site", EntrySecrets("u", "p"), tags = listOf("Banking"))
+        val id = session.list().single().id
+
+        session.renameItem(id, "new alias", "site")
+
+        assertEquals(listOf("Banking"), session.list().single().tags)
+    }
+
+    @Test
     fun deleteEntry_doesNotRequireMasterPassword_andRemovesSecrets() = runTest {
         VaultCrypto.ensureInitialized()
         val file = VaultFile.createNew(masterPassword)

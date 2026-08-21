@@ -28,6 +28,7 @@ import com.notrust.vault.android.ui.screens.BrowseScreen
 import com.notrust.vault.android.ui.screens.CreateVaultScreen
 import com.notrust.vault.android.ui.screens.EntryDetailScreen
 import com.notrust.vault.android.ui.screens.EntryDraft
+import com.notrust.vault.android.ui.screens.ProfileScreen
 import com.notrust.vault.android.ui.screens.SettingsScreen
 import com.notrust.vault.android.ui.screens.UnlockScreen
 import com.notrust.vault.android.ui.theme.NoTrustVaultTheme
@@ -54,6 +55,7 @@ private sealed interface Screen {
     data class EntryDetail(val item: BrowseIndexItem) : Screen
     data class AddEdit(val entryId: String?, val initial: EntryDraft?) : Screen
     data object Settings : Screen
+    data object Profile : Screen
 }
 
 @Composable
@@ -92,7 +94,7 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                     if (event == Lifecycle.Event.ON_STOP) {
                         session?.lock()
                         session = null
-                        if (screen is Screen.Browse || screen is Screen.EntryDetail || screen is Screen.AddEdit || screen is Screen.Settings) {
+                        if (screen is Screen.Browse || screen is Screen.EntryDetail || screen is Screen.AddEdit || screen is Screen.Settings || screen is Screen.Profile) {
                             screen = Screen.Unlock
                         }
                     }
@@ -187,7 +189,7 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                                     val wrapped = repository.loadBiometricWrappedBrowseDek()
                                     val browseDek = biometricKeyStore.unwrap(wrapped)
                                     val realFile = vaultFile ?: repository.load().also { vaultFile = it }
-                                    session = VaultSession.fromBrowseDek(realFile, browseDek)
+                                    session = repository.unlockWithBrowseDek(realFile, browseDek)
                                     vaultKind = VaultKind.REAL
                                     screen = Screen.Browse
                                 } catch (e: IllegalStateException) {
@@ -208,14 +210,35 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                 Screen.Browse -> {
                     val currentSession = checkNotNull(session) { "Browse reached with no unlocked session" }
                     var query by remember { mutableStateOf("") }
+                    var selectedTag by remember { mutableStateOf<String?>(null) }
+                    val baseItems = currentSession.search(query)
+                    val displayedItems = selectedTag?.let { tag -> baseItems.filter { tag in it.tags } } ?: baseItems
                     BrowseScreen(
-                        items = currentSession.search(query),
+                        items = displayedItems,
                         query = query,
                         onQueryChange = { query = it },
+                        allTags = currentSession.allTags(),
+                        selectedTag = selectedTag,
+                        onTagSelected = { selectedTag = it },
                         onItemClick = { screen = Screen.EntryDetail(it) },
                         onAddClick = { screen = Screen.AddEdit(entryId = null, initial = null) },
                         onSettingsClick = { screen = Screen.Settings },
+                        onProfileClick = { screen = Screen.Profile },
                         integrityWarning = integrityWarning
+                    )
+                }
+
+                Screen.Profile -> {
+                    val currentSession = checkNotNull(session) { "Profile reached with no unlocked session" }
+                    val items = currentSession.list()
+                    val tagCounts = items.flatMap { it.tags }.groupingBy { it }.eachCount()
+                        .toList().sortedByDescending { it.second }
+                    ProfileScreen(
+                        entryCount = items.size,
+                        tagCounts = tagCounts,
+                        biometricEnabled = biometricEnabled,
+                        decoyConfigured = decoyConfigured,
+                        onBack = { screen = Screen.Browse }
                     )
                 }
 
@@ -231,7 +254,7 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                         onEdit = { secrets ->
                             screen = Screen.AddEdit(
                                 entryId = s.item.id,
-                                initial = EntryDraft(s.item.alias, s.item.siteName, secrets.username, secrets.password, secrets.notes)
+                                initial = EntryDraft(s.item.alias, s.item.siteName, secrets.username, secrets.password, secrets.notes, s.item.tags)
                             )
                         },
                         onDeleted = { screen = Screen.Browse }
@@ -252,7 +275,7 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                                 error = null
                                 try {
                                     withContext(Dispatchers.Default) {
-                                        currentSession.upsertSecret(masterPassword, s.entryId, draft.alias, draft.siteName, draft.toSecrets())
+                                        currentSession.upsertSecret(masterPassword, s.entryId, draft.alias, draft.siteName, draft.toSecrets(), draft.tags)
                                     }
                                     repository.save(currentSession, vaultKind)
                                     screen = Screen.Browse

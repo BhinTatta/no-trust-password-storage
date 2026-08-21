@@ -65,6 +65,12 @@ class VaultRepository(private val filesDir: File) {
         VaultSession.unlock(file, masterPassword)
     }
 
+    /** The biometric-only unlock path — see [VaultSession.fromBrowseDek]. Same init requirement as [unlock]. */
+    suspend fun unlockWithBrowseDek(file: VaultFile, browseDek: ByteArray): VaultSession = withContext(Dispatchers.Default) {
+        VaultCrypto.ensureInitialized()
+        VaultSession.fromBrowseDek(file, browseDek)
+    }
+
     /** Persists whatever the session's current state is (call after any mutation). */
     suspend fun save(session: VaultSession, kind: VaultKind = VaultKind.REAL) {
         persist(kind, session.currentFile)

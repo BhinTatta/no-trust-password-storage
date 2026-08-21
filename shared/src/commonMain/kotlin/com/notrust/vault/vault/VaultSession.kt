@@ -58,8 +58,18 @@ class VaultSession private constructor(
         requireUnlocked()
         if (query.isBlank()) return list()
         return browseIndex.filter {
-            it.alias.contains(query, ignoreCase = true) || it.siteName.contains(query, ignoreCase = true)
+            it.alias.contains(query, ignoreCase = true) ||
+                it.siteName.contains(query, ignoreCase = true) ||
+                it.tags.any { tag -> tag.contains(query, ignoreCase = true) }
         }
+    }
+
+    /** All distinct tags currently in use, for building a filter chip row. */
+    fun allTags(): List<String> = browseIndex.flatMap { it.tags }.distinct().sorted()
+
+    fun filterByTag(tag: String): List<BrowseIndexItem> {
+        requireUnlocked()
+        return browseIndex.filter { it.tags.contains(tag) }
     }
 
     /** Re-derives the master key fresh and decrypts exactly one entry's secrets. Never cached. */
@@ -86,7 +96,14 @@ class VaultSession private constructor(
      * The browse-index update (alias/site name) reuses the already-unlocked
      * browse DEK — no extra password prompt for that half of the write.
      */
-    fun upsertSecret(masterPassword: String, entryId: String?, alias: String, siteName: String, secrets: EntrySecrets): VaultFile {
+    fun upsertSecret(
+        masterPassword: String,
+        entryId: String?,
+        alias: String,
+        siteName: String,
+        secrets: EntrySecrets,
+        tags: List<String> = emptyList()
+    ): VaultFile {
         requireUnlocked()
         val id = entryId ?: VaultCrypto.newId()
         val masterKey = VaultCrypto.deriveKey(masterPassword, file.salt, file.kdf)
@@ -102,15 +119,15 @@ class VaultSession private constructor(
         } finally {
             VaultCrypto.wipe(masterKey)
         }
-        upsertBrowseItem(BrowseIndexItem(id, alias, siteName))
+        upsertBrowseItem(BrowseIndexItem(id, alias, siteName, tags))
         return file
     }
 
     /** Renames/re-tags an entry's visible label only. Needs just the browse DEK — no master password. */
-    fun renameItem(entryId: String, newAlias: String, newSiteName: String): VaultFile {
+    fun renameItem(entryId: String, newAlias: String, newSiteName: String, newTags: List<String>? = null): VaultFile {
         requireUnlocked()
-        check(browseIndex.any { it.id == entryId }) { "No such entry: $entryId" }
-        upsertBrowseItem(BrowseIndexItem(entryId, newAlias, newSiteName))
+        val existing = browseIndex.firstOrNull { it.id == entryId } ?: error("No such entry: $entryId")
+        upsertBrowseItem(BrowseIndexItem(entryId, newAlias, newSiteName, newTags ?: existing.tags))
         return file
     }
 

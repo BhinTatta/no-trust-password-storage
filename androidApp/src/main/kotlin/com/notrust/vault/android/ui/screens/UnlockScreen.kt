@@ -1,13 +1,19 @@
 package com.notrust.vault.android.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -20,9 +26,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.notrust.vault.android.ui.CipherRainBackground
+import com.notrust.vault.android.ui.theme.VaultColors
+import com.notrust.vault.android.ui.theme.VaultLabelTextStyle
+import com.notrust.vault.android.ui.theme.vaultFieldColors
 
 @Composable
 fun UnlockScreen(
@@ -36,60 +50,87 @@ fun UnlockScreen(
     var password by remember { mutableStateOf("") }
     val throttled = throttleSecondsRemaining > 0
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("No-Trust Vault", style = MaterialTheme.typography.titleLarge)
-        Text(
-            "Enter your master password",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp, bottom = 24.dp)
-        )
+    Box(modifier = Modifier.fillMaxSize().background(VaultColors.Void)) {
+        CipherRainBackground(modifier = Modifier.fillMaxSize())
 
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Master password") },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            isError = errorMessage != null,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        if (errorMessage != null) {
-            Text(errorMessage, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
-        }
-        if (throttled) {
-            Text(
-                "Too many wrong attempts. Try again in ${throttleSecondsRemaining}s.",
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
-
-        Button(
-            onClick = { onUnlock(password) },
-            enabled = !isWorking && !throttled && password.isNotEmpty(),
-            modifier = Modifier.fillMaxWidth().padding(top = 24.dp)
+        Column(
+            modifier = Modifier.fillMaxSize().padding(28.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (isWorking) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp))
-            } else {
-                Text("Unlock")
-            }
-        }
+            // Mark ("NT") stands in for a logo — plain type, wide tracking,
+            // signal-colored, so it reads as an instrument, not a brand.
+            Text(
+                "N·T",
+                style = VaultLabelTextStyle.copy(fontSize = 15.sp, color = VaultColors.Signal)
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                "NO-TRUST VAULT",
+                style = VaultLabelTextStyle.copy(color = VaultColors.TextMuted)
+            )
+            Spacer(modifier = Modifier.height(28.dp))
 
-        if (biometricAvailable) {
-            OutlinedButton(
-                onClick = onBiometricUnlock,
-                enabled = !isWorking && !throttled,
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(VaultColors.Surface.copy(alpha = 0.92f))
+                    .padding(24.dp)
             ) {
-                Text("Unlock with biometrics")
+                Text(
+                    "Enter your master password",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = VaultColors.TextMuted
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Master password") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    isError = errorMessage != null,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
+                    colors = vaultFieldColors(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (errorMessage != null) {
+                    Text(errorMessage, color = VaultColors.Danger, modifier = Modifier.padding(top = 8.dp))
+                }
+                if (throttled) {
+                    Text(
+                        "Too many wrong attempts. Try again in ${throttleSecondsRemaining}s.",
+                        color = VaultColors.Danger,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+
+                Button(
+                    onClick = { onUnlock(password) },
+                    enabled = !isWorking && !throttled && password.isNotEmpty(),
+                    colors = ButtonDefaults.buttonColors(containerColor = VaultColors.Signal, contentColor = Color(0xFF00201C)),
+                    modifier = Modifier.fillMaxWidth().padding(top = 20.dp)
+                ) {
+                    if (isWorking) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color(0xFF00201C))
+                    } else {
+                        Text("UNLOCK", style = VaultLabelTextStyle.copy(color = Color(0xFF00201C)))
+                    }
+                }
+
+                if (biometricAvailable) {
+                    OutlinedButton(
+                        onClick = onBiometricUnlock,
+                        enabled = !isWorking && !throttled,
+                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                    ) {
+                        Text("UNLOCK WITH BIOMETRICS", style = VaultLabelTextStyle)
+                    }
+                }
             }
         }
     }

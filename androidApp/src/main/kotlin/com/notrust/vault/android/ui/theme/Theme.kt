@@ -2,6 +2,7 @@ package com.notrust.vault.android.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -14,58 +15,96 @@ import androidx.compose.ui.unit.sp
 
 /**
  * Deliberately not the default Material dynamic-color theme — see
- * docs/UI_DESIGN.md. One fixed palette, dark-first, with a single amber
- * accent reserved for the reveal/unlock action so it actually means
- * something rather than decorating every button on screen. Site names,
- * usernames, passwords, and aliases render in monospace throughout — this
- * is precise, technical data, not prose, and it visually separates "vault
- * content" from "app chrome" without needing a second custom typeface.
+ * docs/UI_DESIGN.md. This is a cipher/cryptography identity, not a
+ * generic dark app: a near-black void, one electric cyan signal color
+ * that means "this is live cryptographic material" (unlock, reveal,
+ * active state), and a violet used only for depth/atmosphere (the
+ * cipher-rain background, subtle glows) — never both accents competing
+ * for the same job. Deliberately not Matrix green: that's the cliché
+ * this is trying to read as something more considered than.
  */
-private val VaultBackground = Color(0xFF0A0A0C)
-private val VaultSurface = Color(0xFF17181C)
-private val VaultSurfaceVariant = Color(0xFF1F2126)
-private val VaultOnBackground = Color(0xFFEDEDED)
-private val VaultOnSurfaceMuted = Color(0xFF9195A0)
-private val VaultAccent = Color(0xFFE0A458)
-private val VaultAccentOn = Color(0xFF1A1200)
-private val VaultDanger = Color(0xFFE5484D)
+object VaultColors {
+    val Void = Color(0xFF04060A)          // background — near-black, cold undertone
+    val Depth = Color(0xFF0A0E16)         // just above Void, for large recessed areas
+    val Surface = Color(0xFF11151F)       // cards, sheets
+    val SurfaceRaised = Color(0xFF1A2030) // elevated surfaces, input fields
+    val Hairline = Color(0xFF262E42)      // dividers, borders
+
+    val Signal = Color(0xFF2EE6C4)        // the one accent that means "cryptographic action"
+    val SignalDim = Color(0xFF1B8F7C)
+    val Depth2 = Color(0xFF7C6CFF)        // atmosphere-only violet — never on interactive controls
+
+    val TextPrimary = Color(0xFFEAF0F6)
+    val TextMuted = Color(0xFF7C879A)
+    val TextFaint = Color(0xFF4A5468)
+
+    val Danger = Color(0xFFFF5C72)
+}
 
 private val VaultDarkColorScheme = darkColorScheme(
-    background = VaultBackground,
-    onBackground = VaultOnBackground,
-    surface = VaultSurface,
-    onSurface = VaultOnBackground,
-    surfaceVariant = VaultSurfaceVariant,
-    onSurfaceVariant = VaultOnSurfaceMuted,
-    primary = VaultAccent,
-    onPrimary = VaultAccentOn,
-    error = VaultDanger,
-    onError = Color(0xFF1A0000)
+    background = VaultColors.Void,
+    onBackground = VaultColors.TextPrimary,
+    surface = VaultColors.Surface,
+    onSurface = VaultColors.TextPrimary,
+    surfaceVariant = VaultColors.SurfaceRaised,
+    onSurfaceVariant = VaultColors.TextMuted,
+    outline = VaultColors.Hairline,
+    primary = VaultColors.Signal,
+    onPrimary = Color(0xFF00201C),
+    secondary = VaultColors.Depth2,
+    onSecondary = Color(0xFF15102E),
+    error = VaultColors.Danger,
+    onError = Color(0xFF2A0008)
 )
 
 // A light scheme exists for completeness (system light-mode users), but
-// this app's identity is the dark one — see docs/UI_DESIGN.md.
+// this app's real identity is the dark one — see docs/UI_DESIGN.md.
 private val VaultLightColorScheme = lightColorScheme(
-    background = Color(0xFFFAFAF9),
-    onBackground = Color(0xFF16171A),
-    surface = Color(0xFFF1F1EF),
-    onSurface = Color(0xFF16171A),
-    surfaceVariant = Color(0xFFE6E6E3),
-    onSurfaceVariant = Color(0xFF5B5D66),
-    primary = Color(0xFF9A6B2A),
+    background = Color(0xFFF7F8FA),
+    onBackground = Color(0xFF10141C),
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF10141C),
+    surfaceVariant = Color(0xFFEBEDF2),
+    onSurfaceVariant = Color(0xFF565F70),
+    outline = Color(0xFFD8DBE3),
+    primary = Color(0xFF0E9C86),
     onPrimary = Color.White,
-    error = Color(0xFFB3261E),
+    secondary = Color(0xFF5B4CD6),
+    onSecondary = Color.White,
+    error = Color(0xFFC7293E),
     onError = Color.White
 )
 
-val VaultMonoTextStyle = TextStyle(fontFamily = FontFamily.Monospace)
+/** Vault content — site names, usernames, passwords, aliases — always renders in this, never body text. */
+val VaultMonoTextStyle = TextStyle(
+    fontFamily = FontFamily.Monospace,
+    letterSpacing = 0.2.sp
+)
+
+/** Section labels and the unlock/reveal actions get a wide-tracked uppercase treatment — a console feel, not a form. */
+val VaultLabelTextStyle = TextStyle(
+    fontFamily = FontFamily.Monospace,
+    fontWeight = FontWeight.Medium,
+    letterSpacing = 1.8.sp,
+    fontSize = 12.sp
+)
 
 private val VaultTypography = Typography(
-    bodyLarge = TextStyle(fontFamily = FontFamily.Default, fontSize = 16.sp),
-    bodyMedium = TextStyle(fontFamily = FontFamily.Default, fontSize = 14.sp),
-    titleLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 22.sp),
-    titleMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 16.sp),
-    labelLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+    bodyLarge = TextStyle(fontFamily = FontFamily.Default, fontSize = 16.sp, lineHeight = 22.sp),
+    bodyMedium = TextStyle(fontFamily = FontFamily.Default, fontSize = 14.sp, lineHeight = 20.sp),
+    titleLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 24.sp, letterSpacing = 0.sp),
+    titleMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 17.sp),
+    labelLarge = TextStyle(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium, fontSize = 13.sp, letterSpacing = 1.sp)
+)
+
+/** Every text field in the app shares this — the signal color on focus, never the default Material blue/purple. */
+@Composable
+fun vaultFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = VaultColors.Signal,
+    unfocusedBorderColor = VaultColors.Hairline,
+    focusedContainerColor = VaultColors.SurfaceRaised,
+    unfocusedContainerColor = VaultColors.SurfaceRaised,
+    cursorColor = VaultColors.Signal
 )
 
 @Composable

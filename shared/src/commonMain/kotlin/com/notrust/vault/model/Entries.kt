@@ -11,7 +11,11 @@ import kotlinx.serialization.Serializable
 data class BrowseIndexItem(
     val id: String,
     val alias: String,
-    val siteName: String
+    val siteName: String,
+    // Tags ("Banking", "Work", custom labels) are organizational, not
+    // secret — same trust tier as alias/siteName, so they live here
+    // rather than needing a master-password reveal just to filter a list.
+    val tags: List<String> = emptyList()
 )
 
 /**
