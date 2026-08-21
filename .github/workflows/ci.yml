@@ -20,10 +20,10 @@ jobs:
       # shared's androidTarget()), so even a jvm()-only test task needs
       # the SDK present to configure the build at all.
       - name: Accept Android SDK licenses
-        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
       - name: Install required SDK components
-        run: "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0"
+        run: $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
       - name: Run shared module test suite (crypto + vault core)
         run: ./gradlew :shared:jvmTest --no-daemon
