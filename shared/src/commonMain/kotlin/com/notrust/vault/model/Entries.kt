@@ -15,7 +15,11 @@ data class BrowseIndexItem(
     // Tags ("Banking", "Work", custom labels) are organizational, not
     // secret — same trust tier as alias/siteName, so they live here
     // rather than needing a master-password reveal just to filter a list.
-    val tags: List<String> = emptyList()
+    val tags: List<String> = emptyList(),
+    // A user-chosen EntryIconCategory name, or null to auto-detect from
+    // siteName/tags (see EntryIconMatcher). Just a display label — no
+    // more sensitive than the alias it sits next to.
+    val iconOverride: String? = null
 )
 
 /**

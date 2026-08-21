@@ -27,7 +27,19 @@ private const val TRANSFORMATION = "AES/GCM/NoPadding"
 private const val GCM_TAG_LENGTH_BITS = 128
 
 /** Thrown when the biometric prompt itself errors out (cancelled, lockout, etc.), distinct from a decrypt/auth failure. */
-class BiometricPromptException(message: String) : Exception(message)
+class BiometricPromptException(message: String, val errorCode: Int? = null) : Exception(message) {
+    /**
+     * True for the "the user backed out of the prompt" codes — tapping the
+     * negative button, pressing back, or the system dismissing it for that
+     * reason. Auto-triggering the prompt on app open must not show a scary
+     * red error just because the user chose to type their master password
+     * instead; a genuine failure (lockout, hardware error, etc.) still should.
+     */
+    val isUserCancellation: Boolean
+        get() = errorCode == BiometricPrompt.ERROR_USER_CANCELED ||
+            errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON ||
+            errorCode == BiometricPrompt.ERROR_CANCELED
+}
 
 /**
  * Wraps/unwraps the browse DEK using an AES key that lives in the Android
@@ -137,7 +149,7 @@ class AndroidBiometricKeyStore(private val activity: FragmentActivity) : Biometr
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     if (continuation.isActive) {
-                        continuation.resumeWithException(BiometricPromptException(errString.toString()))
+                        continuation.resumeWithException(BiometricPromptException(errString.toString(), errorCode))
                     }
                 }
 

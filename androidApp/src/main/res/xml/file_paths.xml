@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Exposes only the app's private cache directory to the share-sheet
+  FileProvider (see VaultRepository's "Import / export" section and
+  ImportExportScreen.kt). Nothing else on disk is ever handed a
+  content:// URI.
+-->
+<paths>
+    <cache-path name="vault_exports" path="/" />
+</paths>

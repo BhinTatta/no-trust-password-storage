@@ -45,6 +45,7 @@ fun SettingsScreen(
     decoyConfigured: Boolean,
     decoyError: String?,
     onSetupDecoy: (decoyPassword: String) -> Unit,
+    onImportExportClick: () -> Unit,
     onBack: () -> Unit
 ) {
     Scaffold(
@@ -138,6 +139,23 @@ fun SettingsScreen(
                 ) {
                     Text("SET UP DECOY PASSWORD", style = VaultLabelTextStyle.copy(color = Color(0xFF00201C)))
                 }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp), color = VaultColors.Hairline)
+
+            Text("BACKUP", style = VaultLabelTextStyle.copy(color = VaultColors.TextMuted))
+            Text(
+                "Export your whole vault as one master-password-encrypted file, or restore it from one.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = VaultColors.TextMuted,
+                modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
+            )
+            Button(
+                colors = ButtonDefaults.buttonColors(containerColor = VaultColors.Signal, contentColor = Color(0xFF00201C)),
+                onClick = onImportExportClick,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("IMPORT / EXPORT", style = VaultLabelTextStyle.copy(color = Color(0xFF00201C)))
             }
         }
     }

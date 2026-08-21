@@ -102,7 +102,8 @@ class VaultSession private constructor(
         alias: String,
         siteName: String,
         secrets: EntrySecrets,
-        tags: List<String> = emptyList()
+        tags: List<String> = emptyList(),
+        iconOverride: String? = null
     ): VaultFile {
         requireUnlocked()
         val id = entryId ?: VaultCrypto.newId()
@@ -119,7 +120,7 @@ class VaultSession private constructor(
         } finally {
             VaultCrypto.wipe(masterKey)
         }
-        upsertBrowseItem(BrowseIndexItem(id, alias, siteName, tags))
+        upsertBrowseItem(BrowseIndexItem(id, alias, siteName, tags, iconOverride))
         return file
     }
 
@@ -127,7 +128,7 @@ class VaultSession private constructor(
     fun renameItem(entryId: String, newAlias: String, newSiteName: String, newTags: List<String>? = null): VaultFile {
         requireUnlocked()
         val existing = browseIndex.firstOrNull { it.id == entryId } ?: error("No such entry: $entryId")
-        upsertBrowseItem(BrowseIndexItem(entryId, newAlias, newSiteName, newTags ?: existing.tags))
+        upsertBrowseItem(BrowseIndexItem(entryId, newAlias, newSiteName, newTags ?: existing.tags, existing.iconOverride))
         return file
     }
 

@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.notrust.vault.android.ui.EntryIconBadge
 import com.notrust.vault.android.ui.theme.VaultColors
 import com.notrust.vault.android.ui.theme.VaultLabelTextStyle
 import com.notrust.vault.android.ui.theme.vaultFieldColors
@@ -91,6 +92,8 @@ fun EntryDetailScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+            EntryIconBadge(siteName = item.siteName, alias = item.alias, tags = item.tags, iconOverride = item.iconOverride, size = 56.dp)
+            Spacer(modifier = Modifier.height(12.dp))
             Text(item.siteName, style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace, color = VaultColors.TextMuted)
             if (item.tags.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(10.dp))

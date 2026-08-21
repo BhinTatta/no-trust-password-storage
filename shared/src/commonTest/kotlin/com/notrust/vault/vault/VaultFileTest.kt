@@ -135,6 +135,33 @@ class VaultFileTest {
     }
 
     @Test
+    fun upsertSecret_storesAndUpdatesIconOverride() = runTest {
+        VaultCrypto.ensureInitialized()
+        val file = VaultFile.createNew(masterPassword)
+        val session = VaultSession.unlock(file, masterPassword)
+        session.upsertSecret(masterPassword, null, "alias", "site", EntrySecrets("u", "p"), iconOverride = "DEV")
+        val id = session.list().single().id
+
+        assertEquals("DEV", session.list().single().iconOverride)
+
+        session.upsertSecret(masterPassword, id, "alias", "site", EntrySecrets("u", "p"), iconOverride = "CLOUD")
+        assertEquals("CLOUD", session.list().single().iconOverride)
+    }
+
+    @Test
+    fun renameItem_keepsExistingIconOverride() = runTest {
+        VaultCrypto.ensureInitialized()
+        val file = VaultFile.createNew(masterPassword)
+        val session = VaultSession.unlock(file, masterPassword)
+        session.upsertSecret(masterPassword, null, "alias", "site", EntrySecrets("u", "p"), iconOverride = "BANKING")
+        val id = session.list().single().id
+
+        session.renameItem(id, "new alias", "site")
+
+        assertEquals("BANKING", session.list().single().iconOverride)
+    }
+
+    @Test
     fun deleteEntry_doesNotRequireMasterPassword_andRemovesSecrets() = runTest {
         VaultCrypto.ensureInitialized()
         val file = VaultFile.createNew(masterPassword)

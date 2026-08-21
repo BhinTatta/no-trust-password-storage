@@ -44,10 +44,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.notrust.vault.android.ui.CATEGORY_STYLES
 import com.notrust.vault.android.ui.theme.VaultColors
 import com.notrust.vault.android.ui.theme.VaultLabelTextStyle
 import com.notrust.vault.android.ui.theme.vaultFieldColors
 import com.notrust.vault.model.EntrySecrets
+import com.notrust.vault.vault.EntryIconCategory
 
 val PRESET_TAGS = listOf("Banking", "Work", "Google", "Social Media")
 
@@ -57,7 +59,8 @@ data class EntryDraft(
     val username: String,
     val password: String,
     val notes: String,
-    val tags: List<String> = emptyList()
+    val tags: List<String> = emptyList(),
+    val iconOverride: String? = null
 ) {
     fun toSecrets() = EntrySecrets(username = username, password = password, notes = notes)
 }
@@ -84,6 +87,7 @@ fun AddEditEntryScreen(
         mutableStateOf((initial?.tags ?: emptyList()).filterNot { it in PRESET_TAGS })
     }
     var newTagText by remember { mutableStateOf("") }
+    var iconOverride by remember { mutableStateOf(initial?.iconOverride) }
 
     Scaffold(
         containerColor = VaultColors.Void,
@@ -190,6 +194,44 @@ fun AddEditEntryScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(20.dp))
+            Text("ICON", style = VaultLabelTextStyle.copy(color = VaultColors.TextMuted))
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "Auto-detects from the site name and tags. Pick one yourself if it guesses wrong.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = VaultColors.TextMuted
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            FlowRow(
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = iconOverride == null,
+                    onClick = { iconOverride = null },
+                    label = { Text("Auto") },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = VaultColors.Signal,
+                        selectedLabelColor = Color(0xFF00201C)
+                    )
+                )
+                EntryIconCategory.entries.filter { it != EntryIconCategory.GENERIC }.forEach { category ->
+                    val style = CATEGORY_STYLES[category] ?: return@forEach
+                    val selected = iconOverride == category.name
+                    FilterChip(
+                        selected = selected,
+                        onClick = { iconOverride = category.name },
+                        label = { Text(category.name.lowercase().replaceFirstChar(Char::uppercase)) },
+                        leadingIcon = { Icon(style.icon, contentDescription = null, tint = style.color) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = VaultColors.Signal,
+                            selectedLabelColor = Color(0xFF00201C)
+                        )
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
             Text(
                 "Saving needs your master password too — creating or editing a secret is as sensitive as viewing one.",
@@ -214,7 +256,7 @@ fun AddEditEntryScreen(
             Button(
                 onClick = {
                     val tags = (selectedPresets + customTags).toList()
-                    onSave(EntryDraft(alias.trim(), siteName.trim(), username, password, notes, tags), masterPassword)
+                    onSave(EntryDraft(alias.trim(), siteName.trim(), username, password, notes, tags, iconOverride), masterPassword)
                 },
                 enabled = !isSaving && canSave,
                 colors = ButtonDefaults.buttonColors(containerColor = VaultColors.Signal, contentColor = Color(0xFF00201C)),

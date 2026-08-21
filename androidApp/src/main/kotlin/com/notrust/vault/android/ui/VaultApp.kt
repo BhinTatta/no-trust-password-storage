@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.notrust.vault.android.BiometricPromptException
 import com.notrust.vault.android.DeviceIntegrity
 import com.notrust.vault.android.VaultKind
 import com.notrust.vault.android.VaultRepository
@@ -28,6 +29,7 @@ import com.notrust.vault.android.ui.screens.BrowseScreen
 import com.notrust.vault.android.ui.screens.CreateVaultScreen
 import com.notrust.vault.android.ui.screens.EntryDetailScreen
 import com.notrust.vault.android.ui.screens.EntryDraft
+import com.notrust.vault.android.ui.screens.ImportExportScreen
 import com.notrust.vault.android.ui.screens.ProfileScreen
 import com.notrust.vault.android.ui.screens.SettingsScreen
 import com.notrust.vault.android.ui.screens.UnlockScreen
@@ -56,6 +58,7 @@ private sealed interface Screen {
     data class AddEdit(val entryId: String?, val initial: EntryDraft?) : Screen
     data object Settings : Screen
     data object Profile : Screen
+    data object ImportExport : Screen
 }
 
 @Composable
@@ -94,7 +97,7 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                     if (event == Lifecycle.Event.ON_STOP) {
                         session?.lock()
                         session = null
-                        if (screen is Screen.Browse || screen is Screen.EntryDetail || screen is Screen.AddEdit || screen is Screen.Settings || screen is Screen.Profile) {
+                        if (screen is Screen.Browse || screen is Screen.EntryDetail || screen is Screen.AddEdit || screen is Screen.Settings || screen is Screen.Profile || screen is Screen.ImportExport) {
                             screen = Screen.Unlock
                         }
                     }
@@ -144,6 +147,47 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                         }
                     }
 
+                    suspend fun runBiometricUnlock(auto: Boolean) {
+                        working = true
+                        error = null
+                        try {
+                            val wrapped = repository.loadBiometricWrappedBrowseDek()
+                            val browseDek = biometricKeyStore.unwrap(wrapped)
+                            val realFile = vaultFile ?: repository.load().also { vaultFile = it }
+                            session = repository.unlockWithBrowseDek(realFile, browseDek)
+                            vaultKind = VaultKind.REAL
+                            screen = Screen.Browse
+                        } catch (e: IllegalStateException) {
+                            // Biometric key invalidated (new enrollment) —
+                            // AndroidBiometricKeyStore already dropped it.
+                            biometricEnabled = false
+                            error = e.message
+                        } catch (e: BiometricPromptException) {
+                            // A user backing out of an auto-triggered prompt (to type
+                            // the master password instead) is not an error worth a
+                            // red banner — only surface it when they tapped the button.
+                            if (!e.isUserCancellation) {
+                                error = "Biometric unlock failed: ${e.message}"
+                            } else if (!auto) {
+                                error = null
+                            }
+                        } catch (e: Exception) {
+                            error = "Biometric unlock failed: ${e.message}"
+                        } finally {
+                            working = false
+                        }
+                    }
+
+                    // Auto-trigger once per Unlock-screen visit — the user
+                    // should not have to tap a button when biometric unlock
+                    // is already set up, but re-showing itself after a
+                    // cancel would be an unclosable-feeling loop.
+                    LaunchedEffect(screen, biometricEnabled) {
+                        if (biometricEnabled) {
+                            runBiometricUnlock(auto = true)
+                        }
+                    }
+
                     UnlockScreen(
                         isWorking = working,
                         errorMessage = error,
@@ -182,27 +226,7 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                             }
                         },
                         onBiometricUnlock = {
-                            scope.launch {
-                                working = true
-                                error = null
-                                try {
-                                    val wrapped = repository.loadBiometricWrappedBrowseDek()
-                                    val browseDek = biometricKeyStore.unwrap(wrapped)
-                                    val realFile = vaultFile ?: repository.load().also { vaultFile = it }
-                                    session = repository.unlockWithBrowseDek(realFile, browseDek)
-                                    vaultKind = VaultKind.REAL
-                                    screen = Screen.Browse
-                                } catch (e: IllegalStateException) {
-                                    // Biometric key invalidated (new enrollment) —
-                                    // AndroidBiometricKeyStore already dropped it.
-                                    biometricEnabled = false
-                                    error = e.message
-                                } catch (e: Exception) {
-                                    error = "Biometric unlock failed: ${e.message}"
-                                } finally {
-                                    working = false
-                                }
-                            }
+                            scope.launch { runBiometricUnlock(auto = false) }
                         }
                     )
                 }
@@ -254,7 +278,7 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                         onEdit = { secrets ->
                             screen = Screen.AddEdit(
                                 entryId = s.item.id,
-                                initial = EntryDraft(s.item.alias, s.item.siteName, secrets.username, secrets.password, secrets.notes, s.item.tags)
+                                initial = EntryDraft(s.item.alias, s.item.siteName, secrets.username, secrets.password, secrets.notes, s.item.tags, s.item.iconOverride)
                             )
                         },
                         onDeleted = { screen = Screen.Browse }
@@ -275,7 +299,7 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                                 error = null
                                 try {
                                     withContext(Dispatchers.Default) {
-                                        currentSession.upsertSecret(masterPassword, s.entryId, draft.alias, draft.siteName, draft.toSecrets(), draft.tags)
+                                        currentSession.upsertSecret(masterPassword, s.entryId, draft.alias, draft.siteName, draft.toSecrets(), draft.tags, draft.iconOverride)
                                     }
                                     repository.save(currentSession, vaultKind)
                                     screen = Screen.Browse
@@ -347,7 +371,56 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                                 }
                             }
                         },
+                        onImportExportClick = { screen = Screen.ImportExport },
                         onBack = { screen = Screen.Browse }
+                    )
+                }
+
+                Screen.ImportExport -> {
+                    val currentSession = checkNotNull(session) { "ImportExport reached with no unlocked session" }
+                    var working by remember { mutableStateOf(false) }
+                    var status by remember { mutableStateOf<String?>(null) }
+                    var statusIsError by remember { mutableStateOf(false) }
+
+                    ImportExportScreen(
+                        isWorking = working,
+                        statusMessage = status,
+                        statusIsError = statusIsError,
+                        onExportRequested = {
+                            repository.exportBytes(vaultKind)
+                        },
+                        onImportConfirmed = { bytes, masterPassword ->
+                            scope.launch {
+                                working = true
+                                status = null
+                                statusIsError = false
+                                try {
+                                    val candidate = repository.parseImportedVault(bytes)
+                                    // Confirming the password decrypts it before touching
+                                    // disk is what makes this safe to call "restore" rather
+                                    // than "gamble the only copy of your vault" — a bad file
+                                    // or wrong password never gets the chance to overwrite
+                                    // the working vault.
+                                    val restoredSession = repository.unlock(candidate, masterPassword)
+                                    repository.replaceVault(candidate, VaultKind.REAL)
+                                    currentSession.lock()
+                                    session = restoredSession
+                                    vaultFile = candidate
+                                    vaultKind = VaultKind.REAL
+                                    status = "Vault restored."
+                                    screen = Screen.Browse
+                                } catch (e: VaultDecryptionFailed) {
+                                    statusIsError = true
+                                    status = "Wrong master password for this file."
+                                } catch (e: Exception) {
+                                    statusIsError = true
+                                    status = "Not a valid vault export file."
+                                } finally {
+                                    working = false
+                                }
+                            }
+                        },
+                        onBack = { screen = Screen.Settings }
                     )
                 }
             }

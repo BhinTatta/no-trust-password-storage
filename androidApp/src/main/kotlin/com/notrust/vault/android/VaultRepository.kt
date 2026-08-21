@@ -76,6 +76,27 @@ class VaultRepository(private val filesDir: File) {
         persist(kind, session.currentFile)
     }
 
+    // --- Import / export: see docs/SECURITY.md, "Import/Export" ---
+    //
+    // The exported file is exactly the on-disk vault file — still fully
+    // AEAD-encrypted, decryptable only with the master password. Handing
+    // it to the share sheet, saving it, or emailing it to yourself never
+    // exposes anything the vault file itself doesn't already protect.
+
+    /** Raw bytes of the currently-persisted vault file, for export. Reads what's on disk (kept current by [save] after every mutation), not in-memory session state. */
+    suspend fun exportBytes(kind: VaultKind = VaultKind.REAL): ByteArray =
+        withContext(Dispatchers.IO) { fileFor(kind).readBytes() }
+
+    /** Parses picked-file bytes into a [VaultFile] without writing anything to disk. Throws if the bytes aren't a valid vault export. */
+    suspend fun parseImportedVault(bytes: ByteArray): VaultFile = withContext(Dispatchers.Default) {
+        VaultFile.fromJson(bytes.decodeToString())
+    }
+
+    /** Overwrites the on-disk vault outright. Callers must confirm the master password decrypts [file] (via [unlock]) before calling this — an import is otherwise indistinguishable from destroying the vault. */
+    suspend fun replaceVault(file: VaultFile, kind: VaultKind = VaultKind.REAL) {
+        persist(kind, file)
+    }
+
     // --- Unlock throttle: see docs/SECURITY.md, "Rate-limited unlock" ---
 
     private suspend fun loadThrottle(): ThrottleState = withContext(Dispatchers.IO) {

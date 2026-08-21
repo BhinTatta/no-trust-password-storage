@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -39,6 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import com.notrust.vault.android.ui.EntryIconBadge
 import com.notrust.vault.android.ui.theme.VaultColors
 import com.notrust.vault.android.ui.theme.VaultLabelTextStyle
 import com.notrust.vault.android.ui.theme.vaultFieldColors
@@ -147,7 +149,7 @@ fun BrowseScreen(
 
 @Composable
 private fun VaultEntryCard(item: BrowseIndexItem, onClick: () -> Unit) {
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
@@ -155,6 +157,9 @@ private fun VaultEntryCard(item: BrowseIndexItem, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(16.dp)
     ) {
+        EntryIconBadge(siteName = item.siteName, alias = item.alias, tags = item.tags, iconOverride = item.iconOverride)
+        Spacer(modifier = Modifier.width(14.dp))
+        Column {
         Text(
             item.alias,
             fontFamily = FontFamily.Monospace,
@@ -180,6 +185,7 @@ private fun VaultEntryCard(item: BrowseIndexItem, onClick: () -> Unit) {
                     )
                 }
             }
+        }
         }
     }
 }
