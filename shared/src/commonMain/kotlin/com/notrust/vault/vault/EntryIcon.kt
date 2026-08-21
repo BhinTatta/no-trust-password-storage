@@ -21,8 +21,12 @@ enum class EntryIconCategory {
 object EntryIconMatcher {
     private val KEYWORDS: List<Pair<EntryIconCategory, List<String>>> = listOf(
         EntryIconCategory.EMAIL to listOf("gmail", "outlook", "yahoo mail", "protonmail", "mail.", "hotmail"),
+        // Deliberately no bare "x.com" here: as a substring match it also
+        // matches netflix.com, redbox.com, fedex.com, and anything else
+        // ending in "x.com" — "twitter" still catches twitter.com, and X's
+        // own domain can be picked manually via the icon override picker.
         EntryIconCategory.SOCIAL to listOf(
-            "instagram", "facebook", "twitter", "x.com", "tiktok", "snapchat", "pinterest", "reddit", "linkedin"
+            "instagram", "facebook", "twitter", "tiktok", "snapchat", "pinterest", "reddit", "linkedin"
         ),
         EntryIconCategory.MESSAGING to listOf("whatsapp", "telegram", "signal", "discord", "slack", "messenger"),
         EntryIconCategory.BANKING to listOf(
