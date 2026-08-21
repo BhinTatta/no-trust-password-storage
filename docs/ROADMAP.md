@@ -22,16 +22,30 @@
   a simpler custom container once SQLCipher's KMP integration turned out
   to be genuinely fragile (see `docs/ARCHITECTURE.md`).
 
-### Phase 1 — MVP (Android, local only)
-- Vault creation: set master password, generate salt + secrets DEK, show
-  optional recovery phrase once.
-- Manual CRUD entries (site name, username, password, alias, notes, tags),
-  built on the shared module from Phase 0.
-- Browse-tier list + search (alias/site name only) — no biometrics yet,
-  gated by master password for now.
+### Phase 1 — MVP (Android, local only) — written, pending build verification
+- `/androidApp`: Jetpack Compose, no Navigation library or ViewModel/DI
+  framework — a plain sealed `Screen` state switch and coroutine-backed
+  callbacks are all six screens need at this size (see docs/UI_DESIGN.md
+  for the visual direction: dark, monospace vault content, one accent color).
+- Vault creation: set master password (ASCII-validated), create the vault,
+  unlock straight into it. (Recovery-phrase backup is not yet implemented —
+  still optional/future, not blocking Phase 1.)
+- Manual CRUD entries (site name, username, password, alias, notes) on top
+  of `VaultSession` from Phase 0.
+- Browse-tier list + search (alias/site name only) — gated by master
+  password for now, since biometrics are Phase 2.
 - Per-entry reveal flow: master password prompt → decrypt just that entry
-  → auto-clear after a short display window.
-- Auto-lock on background/timeout.
+  → 20s auto-redact countdown. Editing an entry is only reachable *after*
+  revealing it (nothing to prefill otherwise, and blind-overwriting an
+  unseen secret is bad hygiene) — deleting and renaming don't need the
+  master password at all, consistent with the two-tier design.
+- Auto-lock on backgrounding (`ON_STOP`), `FLAG_SECURE` to block
+  screenshots/recording, and clipboard auto-clear (30s, marked sensitive
+  on API 33+) on every copy.
+- **Not build-verified**: this sandbox has no Android SDK and can't reach
+  Google's Maven to get one — see `docs/ARCHITECTURE.md` for the exact
+  three-file activation checklist and what to expect on first Android
+  Studio sync.
 - **Goal:** a fully usable, fully local password manager with the two-tier
   reveal model already in place, before biometrics or sync exist.
 

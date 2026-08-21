@@ -1,0 +1,57 @@
+plugins {
+    id("com.android.application")
+    kotlin("android")
+    kotlin("plugin.compose")
+}
+
+// Version choices here (AGP 8.7.x, this Compose BOM) favor a pattern that's
+// been stable and widely documented for a long time over whatever is
+// bleeding-edge as you read this — this module could not be built/verified
+// in the environment it was written in (see shared/build.gradle.kts).
+// If Android Studio's first sync offers an upgrade, take it.
+android {
+    namespace = "com.notrust.vault.android"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "com.notrust.vault.android"
+        minSdk = 26
+        targetSdk = 34
+        versionCode = 1
+        versionName = "0.1.0"
+    }
+
+    buildFeatures {
+        compose = true
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = "11"
+    }
+}
+
+dependencies {
+    implementation(project(":shared"))
+
+    val composeBom = platform("androidx.compose:compose-bom:2024.09.03")
+    implementation(composeBom)
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-graphics")
+    implementation("androidx.compose.material3:material3")
+    // Using -extended rather than -core: it's a superset, and it's not
+    // worth guessing which specific icons (ContentCopy, Edit, Delete,
+    // ArrowBack, Add) the trimmed-down core set does or doesn't include
+    // without a real build to check against. The APK-size cost of the
+    // full icon pack is a non-issue for an app this size.
+    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.activity:activity-compose:1.9.2")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.6")
+
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+}

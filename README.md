@@ -9,13 +9,19 @@ Google Drive, which only ever sees ciphertext.
 
 ## Status
 
-**Phase 0 (shared crypto/vault core) is implemented and tested** — see
-`/shared`: Argon2id KDF, AEAD envelope encryption, the two-tier vault
-format, and 31 passing tests (known-answer/regression, round-trip,
-two-tier isolation, full CRUD). It currently builds and tests against the
-`jvm()` target only, since this was built in an environment without the
-Android SDK — see `docs/ARCHITECTURE.md` for exactly what's left to add
-`androidTarget()` in Android Studio. No UI exists yet (Phase 1).
+- **Phase 0 (shared crypto/vault core): implemented and tested.** See
+  `/shared`: Argon2id KDF, AEAD envelope encryption, the two-tier vault
+  format, and 31 passing tests (known-answer/regression, round-trip,
+  two-tier isolation, full CRUD) — verified for real against the `jvm()`
+  target in the environment this was built in (no Android SDK there).
+- **Phase 1 (Android app UI): written, not yet build-verified.** See
+  `/androidApp` — vault creation/unlock, browse+search, per-entry reveal
+  with auto-redact, add/edit, delete, auto-lock, screenshot blocking,
+  clipboard auto-clear. It's not wired into the Gradle build yet because
+  doing so requires the Android SDK, which this sandbox doesn't have and
+  can't download (Google's Maven is unreachable here). **Three-step
+  activation checklist in `docs/ARCHITECTURE.md`** — uncomment a few
+  lines in Android Studio, sync, fix whatever it flags.
 
 ## Why
 
