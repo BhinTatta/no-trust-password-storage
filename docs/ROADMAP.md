@@ -88,8 +88,18 @@
 - Revision counter + conflict detection/prompt.
 
 ### Phase 4 — OCR quick-add
-- ML Kit Text Recognition integration, camera capture flow.
-- Heuristic field-guessing (below), mandatory user confirmation before saving.
+- **`OcrFieldGuesser` (shared, tested — 7 tests): done.** Pure text-in,
+  guesses-out logic — no ML Kit/camera dependency, so unlike everything
+  else past Phase 0 this could be written *and verified for real* in the
+  sandbox. Writing its tests caught a real bug before it shipped: an
+  early "just guess the first other line is the site name" fallback
+  would misclassify a password as the site name whenever nothing looked
+  like a domain, silently losing the actual password guess. Fixed by
+  dropping the fallback — no domain-looking line means no site-name
+  guess, which is the safer wrong answer here.
+- **Not yet done**: ML Kit Text Recognition integration and the camera
+  capture flow — Android/ML Kit-specific, needs Android Studio the same
+  way the rest of `/androidApp` does.
 - Captured photo discarded immediately unless the user opts to keep an
   encrypted thumbnail.
 
