@@ -2,12 +2,25 @@
 
 ## Phased build plan
 
-### Phase 0 — Shared core scaffolding
-- Set up the KMP `shared` module (see `docs/ARCHITECTURE.md`): libsodium
-  binding, Argon2id KDF, envelope encryption, SQLDelight schema.
-- Known-answer tests + round-trip property tests for every primitive
-  before any UI exists (see `docs/TESTING.md`) — the crypto core is right,
-  and proven right, before anything is built on top of it.
+### Phase 0 — Shared core scaffolding — ✅ done
+- KMP `shared` module set up (see `docs/ARCHITECTURE.md`): libsodium
+  binding (Argon2id KDF + AEAD), the two-tier `VaultFile` container format,
+  `VaultSession` for unlock/reveal/CRUD, and the `BiometricKeyStore` plug-in
+  point for Phase 2.
+- 31 tests passing (see `docs/TESTING.md`): determinism/sensitivity checks
+  on the KDF, a pinned regression vector, AEAD round-trip and tamper
+  detection, full vault CRUD, wrong-master-password handling, and the
+  two-tier isolation property (browse DEK can never decrypt secrets and
+  vice versa). Verified with a real `./gradlew :shared:jvmTest` run, not
+  just written and assumed correct.
+- Along the way: confirmed the exact libsodium binding API against its
+  actual published source (not just its README, which had at least one
+  stale detail) before writing code against it, and found — then designed
+  around — a real cross-platform password-encoding hazard in that binding
+  (see `docs/SECURITY.md`, "Master passwords are restricted to printable
+  ASCII"). Also dropped an earlier SQLCipher-based storage plan in favor of
+  a simpler custom container once SQLCipher's KMP integration turned out
+  to be genuinely fragile (see `docs/ARCHITECTURE.md`).
 
 ### Phase 1 — MVP (Android, local only)
 - Vault creation: set master password, generate salt + secrets DEK, show
@@ -64,9 +77,9 @@
 - **Reveal cost is intentional**: Argon2id at ~0.5–1s per reveal is a
   deliberate, small friction cost, paid per view rather than per session.
   Benchmark actual parameters against a low-end target device on first run.
-- **Search stays fast**: SQLCipher decrypts pages on the fly with hardware
-  AES acceleration; FTS5 indexed search against the browse-tier index (not
-  the encrypted secrets) is effectively instant even at thousands of entries.
+- **Search stays fast**: the browse index is a plain in-memory list after
+  unlock; an in-memory substring filter over a few thousand short strings
+  is effectively instant, with none of the complexity a SQL engine would add.
 - **Sync is cheap**: vault files at this scale are kilobytes to low
   megabytes; only sync when a content hash shows the file actually changed.
 
@@ -87,7 +100,7 @@
 | Google-style protection | This app's equivalent |
 |---|---|
 | Hardware security module (Titan M) for key storage | Android Keystore/StrongBox for the browse-tier key |
-| Encryption at rest across their infra | SQLCipher AES-256 page encryption, entirely on-device |
+| Encryption at rest across their infra | libsodium AEAD encryption of the vault container, entirely on-device |
 | Account recovery flows | Deliberately absent — that's the whole point |
 | Server-side rate limiting on login | Client-side exponential backoff (no server to rate-limit) |
 | Play Integrity / SafetyNet app attestation | Same API, used to detect a tampered clone of this app |

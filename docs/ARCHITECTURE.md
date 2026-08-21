@@ -25,42 +25,75 @@ Net effect: less code to get right in the parts that must never be wrong
 (the crypto), at the cost of writing the UI twice — an acceptable trade
 for a password manager.
 
-## Module layout
+## Module layout (as built)
 
 ```
-/shared                     (Kotlin Multiplatform module)
+/shared                     (Kotlin Multiplatform module — jvm() target only for now, see below)
   /commonMain
-    vault/                  entry model, envelope encryption orchestration,
-                             Argon2id KDF calls, libsodium bindings
-    storage/                SQLDelight schema + queries (vault + browse index)
-    sync/                   Google Drive REST client, conflict/revision logic
-    ocr/                    text-parsing heuristics (site/username/password guessing)
-                             — the OCR *engine* itself is platform-native (see below),
-                             this is just the shared "what to do with the extracted text"
-  /androidMain
-    secure/                 Android Keystore + StrongBox key wrapping, BiometricPrompt glue
-  /iosMain                  (added when iOS work starts)
-    secure/                 Secure Enclave + Keychain key wrapping, LocalAuthentication glue
+    crypto/                 VaultCrypto (Argon2id KDF, AEAD encrypt/decrypt/wrap,
+                             random generation, ASCII password validation),
+                             EncryptedBox + its Base64 (de)serializers
+    model/                  BrowseIndexItem, EntrySecrets — the two data
+                             shapes for the two trust tiers
+    vault/                  VaultFile (the on-disk/synced container format),
+                             VaultSession (stateful unlock/reveal/CRUD),
+                             BiometricKeyStore (the Phase 2 plug-in point)
+  /commonTest
+    crypto/                 VaultCryptoTest — determinism, sensitivity, a
+                             pinned regression vector, AEAD round-trip/tamper tests
+    vault/                  VaultFileTest — unlock, wrong-password, full CRUD,
+                             and the two-tier isolation test
 
-/androidApp                 Jetpack Compose UI, consumes /shared
-/iosApp                     (added later) SwiftUI UI, consumes /shared via a
+/androidApp                 (Phase 1) Jetpack Compose UI, consumes /shared
+/iosApp                     (Phase 7, later) SwiftUI UI, consumes /shared via a
                              Kotlin/Native framework
 ```
 
-The `secure/` package is defined with a Kotlin `expect` interface in
-`commonMain` (e.g. `interface BiometricKeyStore { fun wrapKey(...); fun
-unwrapKey(...) }`) and an `actual` implementation per platform. This is the
-*only* place platform divergence is allowed to live — everything above it
-(vault logic, entry model, sync, search) calls the same shared interface
-and has no idea which platform it's running on.
+`storage/`, `sync/`, and `ocr/` from the original sketch don't exist as
+separate packages: the vault format turned out simple enough (see
+`docs/SECURITY.md` — no SQLCipher, just a JSON container) that persistence
+lives directly in `vault/`; Google Drive sync and OCR text-parsing land
+here in Phase 3/4 once there's a UI to drive them.
+
+`BiometricKeyStore` (in `vault/`) is a plain Kotlin `interface` in
+`commonMain`, not an `expect`/`actual` pair — it's a pluggable strategy
+(platform code hands the shared module an implementation) rather than a
+compile-time per-platform swap, which is a slightly better fit here since
+nothing in `commonMain` needs to construct one itself. Either pattern
+keeps the same property that matters: this is the *only* place platform
+divergence is allowed to live. Everything else in `commonMain`/`commonTest`
+has no idea which platform it's running on.
+
+## Why this module currently targets only `jvm()`
+
+This was built in a Linux environment with no Android SDK and no Xcode.
+Applying the Android Gradle Plugin without an installed SDK breaks Gradle
+configuration for the *entire* build, not just the Android-specific parts —
+so `androidTarget()` isn't in `shared/build.gradle.kts` yet. Instead, the
+module targets `jvm()`, and the full `commonMain`/`commonTest` source sets
+(the KDF, the AEAD, the vault format, all 31 tests) were written, compiled,
+and run for real against that target — see the root `README.md` Status
+section.
+
+To add Android: in an environment with the SDK (Android Studio, or CI with
+`android-actions/setup-android`), add `androidTarget()` next to `jvm()` in
+`shared/build.gradle.kts`, then add the `/androidApp` module. No changes
+to `commonMain`/`commonTest` are needed — `androidTarget()` compiles the
+exact same shared code, since the libsodium binding and kotlinx.serialization
+both already publish Android artifacts (confirmed against the actual
+published jars, not just the README, before writing any of this).
+
+iOS (`iosX64()`/`iosArm64()`/`iosSimulatorArm64()`) is Phase 7 in
+`docs/ROADMAP.md` — deferred until there's an actual Mac to build on, since
+Kotlin/Native's iOS targets require Xcode toolchain access that doesn't
+exist in this environment either.
 
 ## What this means for build order
 
-1. Build `/shared` and `/androidApp` together first — there is no iOS
-   target yet, so KMP costs nothing extra right now beyond the
-   `expect`/`actual` boundary around the Keystore code, which we'd need to
-   isolate cleanly regardless.
-2. When iOS work starts, `/shared` is reused as-is; only `/iosApp` and the
-   `iosMain` `actual` implementations are new. The crypto and vault logic
-   — the part that must never have a subtle bug — is not rewritten, just
-   re-tested against the same shared test suite (see `docs/TESTING.md`).
+1. `/shared` (crypto + vault core) is done and tested — Phase 0, complete.
+2. Add `androidTarget()` + `/androidApp` next (Phase 1), in an environment
+   with the Android SDK. `/shared`'s commonMain/commonTest carry over unchanged.
+3. When iOS work starts (Phase 7), `/shared` is reused as-is again; only
+   `/iosApp` and an `iosMain` implementation of `BiometricKeyStore` are new.
+   The crypto and vault logic is not rewritten, just re-tested against the
+   same shared test suite (see `docs/TESTING.md`).

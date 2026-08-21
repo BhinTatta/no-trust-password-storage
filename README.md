@@ -7,6 +7,16 @@ forget it — can ever recover. Everything is encrypted on-device before it
 touches disk or the network, and the only sync destination is *your own*
 Google Drive, which only ever sees ciphertext.
 
+## Status
+
+**Phase 0 (shared crypto/vault core) is implemented and tested** — see
+`/shared`: Argon2id KDF, AEAD envelope encryption, the two-tier vault
+format, and 31 passing tests (known-answer/regression, round-trip,
+two-tier isolation, full CRUD). It currently builds and tests against the
+`jvm()` target only, since this was built in an environment without the
+Android SDK — see `docs/ARCHITECTURE.md` for exactly what's left to add
+`androidTarget()` in Android Studio. No UI exists yet (Phase 1).
+
 ## Why
 
 Password managers ask you to trust their servers, their recovery flows,
@@ -25,7 +35,9 @@ losing the vault — same trade-off as a self-custodied crypto wallet.
   actual secrets. Seeing a real username/password always costs a master
   password entry, every single time, not just once per session.
 - **Local-first, encrypted-at-rest**: the vault is a single encrypted
-  SQLCipher database file, synced as one opaque blob.
+  container file (libsodium AEAD over a serialized, versioned format —
+  see `docs/ARCHITECTURE.md` for why this replaced an earlier SQLCipher
+  plan), synced as one opaque file.
 - **Minimal, deliberate UI**: no generic template look. Typography-led,
   quiet, confident — see [`docs/UI_DESIGN.md`](docs/UI_DESIGN.md).
 
@@ -50,7 +62,7 @@ losing the vault — same trade-off as a self-custodied crypto wallet.
 - Fast local search over aliases/site names (biometric-gated tier)
 - Per-view master-password reveal for the actual username/password (no
   session-wide caching of secrets)
-- Argon2id + AES-256-GCM envelope encryption; SQLCipher-encrypted local DB
+- Argon2id + libsodium AEAD envelope encryption; custom encrypted vault container
 - Biometric unlock for the *browse* tier only, via Android Keystore/StrongBox
 - Automatic encrypted sync to your own Google Drive (`drive.file` scope)
 - On-device OCR quick-add (ML Kit) — no cloud OCR call, ever
@@ -82,7 +94,7 @@ platform-specific rather than papered over by a framework).
 | Shared core | Kotlin Multiplatform module | One implementation of the vault format, crypto, and sync logic — no second copy to keep in sync (and no second copy to introduce a second set of bugs) when iOS arrives |
 | UI (Android) | Jetpack Compose | Modern native Android UI, full control over look |
 | UI (iOS, later) | SwiftUI | Native look/feel and native biometric UX on iOS, calling into the shared core |
-| Local storage | SQLDelight + SQLCipher | Multiplatform, type-safe SQL; SQLCipher gives transparent AES-256 page encryption on both platforms; syncs as one opaque file |
+| Local storage | Custom encrypted container (kotlinx.serialization + libsodium AEAD) | A vault this size (hundreds of entries) doesn't need a SQL engine; SQLCipher's KMP story requires fragile per-platform native linking (custom CocoaPods setup on iOS) for no real benefit here — see `docs/ARCHITECTURE.md` |
 | Crypto primitives | libsodium (via a Kotlin/Native multiplatform binding) | One well-audited, battle-tested crypto library on both platforms instead of two different platform-native crypto stacks that could drift or be misused differently |
 | KDF | Argon2id (via the same libsodium binding) | Memory-hard, GPU/ASIC-resistant password stretching, identical behavior on both platforms |
 | Hardware-backed key storage | Android Keystore (StrongBox when available) / iOS Secure Enclave + Keychain | Platform-specific by necessity — this is the one layer that can't be shared |
@@ -121,7 +133,7 @@ platform-specific rather than papered over by a framework).
                     used for the list + search only)
 ```
 
-Two independent keys guard two independent tiers of the *same* SQLCipher
+Two independent keys guard two independent tiers of the *same* vault
 file. Compromising the biometric/Keystore path exposes only labels you
 chose to be low-stakes (which services you have accounts with, and
 whatever nickname you gave them) — never a username or password. That

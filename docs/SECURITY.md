@@ -30,7 +30,7 @@ that biometrics should only ever grant *browsing*, never *reading secrets*:
 | **Reveal** | Master password | Username + password for one entry | **Every single time**, no caching |
 
 These are backed by two separate keys, both protecting data inside the
-same SQLCipher file:
+same vault file:
 
 1. **Browse-index key** — an AES key generated in the Android Keystore
    with `setUserAuthenticationRequired(true)` and
@@ -59,6 +59,19 @@ material anywhere in the Keystore, hardware or software, that unwraps the
 secrets DEK. Only the Argon2id derivation from the master password can do
 that, and that derivation only ever happens transiently, on demand.
 
+**Master passwords are restricted to printable ASCII.** This was found
+during implementation, not assumed up front: the JVM binding of the
+libsodium library this app uses derives the native byte-length of the
+password from Kotlin's `String.length` (a UTF-16 code-unit count) before
+handing the password to native code separately. For any character outside
+the single-UTF-16-unit-equals-single-byte ASCII range, those two counts can
+disagree — a real risk of silently-wrong key material for a KDF, and
+potentially *different* wrong material on different platforms/library
+versions. Rather than accept that hazard, master (and decoy) passwords are
+required to be printable ASCII, enforced in code before any password ever
+reaches the KDF — the same convention hardware wallets use for seed
+phrases, for the same reason.
+
 ## Non-recoverability, by design
 
 There is no password-reset flow because there is no server to reset it on.
@@ -74,20 +87,30 @@ Configurable from **Settings → Security → Decoy password**:
 - Unlocking with it (instead of the real master password) opens a
   separate, cosmetically identical vault — empty by default, or you can
   seed it with a few harmless-looking dummy entries.
-- The decoy vault is its own independent SQLCipher database with its own
-  DEK; there is no way to derive the real vault from the decoy one, and no
-  UI element hints at the real vault's existence while the decoy is open.
+- The decoy vault is its own independent vault file with its own DEK;
+  there is no way to derive the real vault from the decoy one, and no UI
+  element hints at the real vault's existence while the decoy is open.
 - This is off by default and entirely optional — it exists for the
   "someone is forcing me to unlock my phone" scenario, not as a primary
   feature.
 
-## Local storage: SQLCipher
+## Local storage: a custom encrypted container, not SQLCipher
 
-The vault is a single SQLCipher-encrypted SQLite file — AES-256 per-page
-encryption, keyed by the relevant DEK (`PRAGMA key`), with HMAC page
-integrity so tampering is detected rather than silently accepted. Real
-indexes and FTS5 give fast search on the browse-tier index without ever
-touching the secrets columns.
+Earlier drafts of this plan called for SQLCipher (encrypted SQLite). In
+practice, SQLCipher's Kotlin Multiplatform story is genuinely fragile — it
+needs custom CocoaPods linking on iOS and fights with SQLDelight's default
+`linkSqlite` linker flags — for a database that, realistically, holds a
+few hundred to a few thousand short entries. That's not a scale where a
+SQL engine earns its complexity.
+
+Instead, the vault is a single JSON file (see `shared/.../vault/VaultFile.kt`):
+plaintext metadata (format version, KDF salt and parameters — none of
+this is secret) plus a handful of ciphertext blobs (the wrapped DEKs, the
+encrypted browse index, one independently-encrypted blob per entry's
+secrets), each produced by libsodium's authenticated encryption
+(XSalsa20-Poly1305 via `SecretBox`). "Search" is an in-memory filter over
+the browse index once it's decrypted at unlock — at this data scale that's
+microseconds, with none of SQLCipher's platform-linking risk.
 
 ## Google Drive sync — zero-trust by construction
 
@@ -97,7 +120,7 @@ touching the secrets columns.
   point at a normal visible folder if you want to browse/manually back up
   the ciphertext yourself.
 - The **entire vault** — entries, aliases, and TOTP/2FA seeds alike — lives
-  in the same encrypted SQLCipher file and syncs as one unit. TOTP secrets
+  in the same encrypted container file and syncs as one unit. TOTP secrets
   get exactly the same secrets-tier protection as passwords: encrypted by
   the DEK, wrapped by the Master Key, never readable via biometrics alone.
 - Conflict handling: each upload carries a monotonic revision counter and
