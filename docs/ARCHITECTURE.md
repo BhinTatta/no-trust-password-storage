@@ -64,56 +64,36 @@ keeps the same property that matters: this is the *only* place platform
 divergence is allowed to live. Everything else in `commonMain`/`commonTest`
 has no idea which platform it's running on.
 
-## Why this module currently targets only `jvm()`
+## Android activation history
 
-This was built in a Linux environment with no Android SDK and no Xcode.
-Applying the Android Gradle Plugin without an installed SDK breaks Gradle
-configuration for the *entire* build, not just the Android-specific parts —
-so `androidTarget()` isn't in `shared/build.gradle.kts` yet. Instead, the
-module targets `jvm()`, and the full `commonMain`/`commonTest` source sets
-(the KDF, the AEAD, the vault format, all 31 tests) were written, compiled,
-and run for real against that target — see the root `README.md` Status
-section.
+This was built in a Linux sandbox with no Android SDK and no Xcode, and
+with network egress to `dl.google.com` (which hosts the Android Gradle
+Plugin and every AndroidX/Compose artifact) blocked — confirmed by direct
+`curl`, not assumed. Declaring `com.android.library`/`com.android.application`
+anywhere in the build, even behind `apply false`, made Gradle fail before
+running any task at all, including `:shared:jvmTest`. For Phase 0 and most
+of Phase 1/2, `androidTarget()` stayed commented out for exactly that
+reason: the module targeted `jvm()` only, and the full `commonMain`/
+`commonTest` source sets were written, compiled, and run for real against
+that target.
 
-The `/androidApp` module (Phase 1) is now written in full — Compose UI for
-vault creation/unlock, browse+search, per-entry reveal with auto-redact,
-add/edit, delete, auto-lock on background, `FLAG_SECURE`, clipboard
-auto-clear — but it's deliberately **not wired into this build**. Both
-`androidTarget()` and `com.android.library`/`com.android.application`
-require a real Android SDK to even *resolve*, and this sandbox's network
-egress to `dl.google.com` (which hosts the Android Gradle Plugin and every
-AndroidX/Compose artifact — confirmed by direct `curl`, not assumed) is
-blocked. Declaring those plugins anywhere in the build — even behind
-`apply false` — makes Gradle fail before running any task at all,
-including the already-verified `:shared:jvmTest`. Rather than trade away
-the ability to keep testing the crypto core for an Android target that
-can't be checked here anyway, the activation is three small, clearly
-marked, commented-out edits:
+**`androidTarget()`, `com.android.library`/`com.android.application`, and
+`include(":androidApp")` are now active** — the three-file checklist that
+used to live here has been applied. This build now needs the Android SDK
+to configure at all, which the original sandbox never had; GitHub Actions
+(`.github/workflows/build-apk.yml` and the updated `ci.yml`) is the
+environment that actually has it, and is what verifies this build going
+forward, including compiling the Compose UI for the first time. Android
+Studio works too, locally, whenever you want it.
 
-1. **Root `build.gradle.kts`** — uncomment the three plugin lines
-   (`kotlin("plugin.compose")`, `com.android.library`, `com.android.application`).
-2. **`shared/build.gradle.kts`** — uncomment `id("com.android.library")`,
-   the `androidTarget { }` block, the `android { }` block, and the
-   `androidMain` source set line.
-3. **`settings.gradle.kts`** — uncomment `include(":androidApp")`.
-
-Do this in Android Studio (or CI with the SDK installed) and sync — no
-changes to `commonMain`/`commonTest` are needed, since the libsodium
-binding and kotlinx.serialization both already publish Android artifacts
-(confirmed against the actual published jars, not just the README, back
-in Phase 0).
-
-**Important caveat on `/androidApp` specifically**: unlike `/shared`,
-which was compiled and tested for real (31 passing tests), the
-`/androidApp` Compose code could not be build-verified in this
-environment at all — Compose, AndroidX, and AGP are exclusively on
-Google's Maven, which is unreachable here. The Kotlin logic was written
-carefully and cross-checked against the already-tested `VaultSession`/
-`VaultFile` API it calls into, and against version/DSL details confirmed
-via web search rather than guessed, but it has not been compiled. Expect
-to fix a handful of small issues (an import, a version bump Android
-Studio suggests) on first sync — that's expected, not a sign anything
-deeper is wrong.
+**Caveat on `/androidApp`**: it's now wired into the build and being
+compiled for real by GitHub Actions (see `build-apk.yml`), which is the
+first actual compiler check it's had — nothing in this sandbox could ever
+build it. If that workflow is green, the Compose UI compiles; that's a
+real, load-bearing signal, not a guess. `AndroidBiometricKeyStore`
+specifically still has no way to be *test*-verified short of a real
+device with biometrics enrolled — a green build only proves it compiles,
+not that the Keystore/BiometricPrompt flow behaves correctly at runtime.
 
 iOS (`iosX64()`/`iosArm64()`/`iosSimulatorArm64()`) is Phase 7 in
 `docs/ROADMAP.md` — deferred until there's an actual Mac to build on, since
@@ -123,9 +103,9 @@ exist in this environment either.
 ## What this means for build order
 
 1. `/shared` (crypto + vault core) is done, tested, and verified — Phase 0, complete.
-2. `/androidApp` (Phase 1 UI) is written and ready but unverified — activate
-   it with the three-step checklist above in Android Studio, fix whatever
-   Android Studio's first sync flags, then build/run on a device or emulator.
+2. `/androidApp` (Phase 1-2 UI) is written and now wired into the build —
+   CI compiles it on every push; see the root README for how to get an
+   installable APK without Android Studio at all.
 3. When iOS work starts (Phase 7), `/shared` is reused as-is again; only
    `/iosApp` and an `iosMain` implementation of `BiometricKeyStore` are new.
    The crypto and vault logic is not rewritten, just re-tested against the

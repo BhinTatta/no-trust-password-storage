@@ -1,12 +1,12 @@
-name: CI
+name: Build debug APK
 
 on:
   push:
     branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 jobs:
-  shared-tests:
+  build-apk:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,21 +16,18 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # Android is now part of the project graph (androidApp, and
-      # shared's androidTarget()), so even a jvm()-only test task needs
-      # the SDK present to configure the build at all.
       - name: Accept Android SDK licenses
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
 
       - name: Install required SDK components
         run: "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Run shared module test suite (crypto + vault core)
-        run: ./gradlew :shared:jvmTest --no-daemon
+      - name: Build debug APK
+        run: ./gradlew :androidApp:assembleDebug --no-daemon --stacktrace
 
-      - name: Upload test report
-        if: always()
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: shared-jvm-test-report
-          path: shared/build/reports/tests/jvmTest
+          name: no-trust-vault-debug-apk
+          path: androidApp/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

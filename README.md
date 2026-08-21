@@ -9,19 +9,38 @@ Google Drive, which only ever sees ciphertext.
 
 ## Status
 
-- **Phase 0 (shared crypto/vault core): implemented and tested.** See
-  `/shared`: Argon2id KDF, AEAD envelope encryption, the two-tier vault
-  format, and 31 passing tests (known-answer/regression, round-trip,
-  two-tier isolation, full CRUD) — verified for real against the `jvm()`
-  target in the environment this was built in (no Android SDK there).
-- **Phase 1 (Android app UI): written, not yet build-verified.** See
+- **Shared crypto/vault core: implemented and tested.** See `/shared`:
+  Argon2id KDF, AEAD envelope encryption, the two-tier vault format,
+  biometric-unlock entry point, rate limiting, OCR field-guessing — 47
+  passing tests (known-answer/regression, round-trip, two-tier isolation,
+  full CRUD), verified for real against the `jvm()` target.
+- **Android app: wired into the build, compiled by CI.** See
   `/androidApp` — vault creation/unlock, browse+search, per-entry reveal
-  with auto-redact, add/edit, delete, auto-lock, screenshot blocking,
-  clipboard auto-clear. It's not wired into the Gradle build yet because
-  doing so requires the Android SDK, which this sandbox doesn't have and
-  can't download (Google's Maven is unreachable here). **Three-step
-  activation checklist in `docs/ARCHITECTURE.md`** — uncomment a few
-  lines in Android Studio, sync, fix whatever it flags.
+  with auto-redact, add/edit, delete, biometric unlock, decoy password,
+  rate-limited unlock, root/tamper warning, auto-lock, screenshot
+  blocking, clipboard auto-clear.
+- **Getting an APK onto your phone without installing Android Studio**:
+  push to `main` (or trigger it manually) and GitHub Actions builds a
+  debug APK — see the *Build & install* section below.
+
+## Build & install (no Android Studio required)
+
+1. Every push to `main` runs **Build debug APK**
+   (`.github/workflows/build-apk.yml`) on GitHub's servers.
+2. On GitHub, open **Actions → Build debug APK → (the latest run)** →
+   scroll to **Artifacts** → download `no-trust-vault-debug-apk`. This
+   works from a phone browser too — GitHub's mobile site serves artifact
+   downloads directly.
+3. Unzip it (a phone file manager or "Files" app can do this) to get the
+   `.apk`.
+4. On your phone: tapping the APK will prompt to allow installs from that
+   source (Files/Chrome) — allow it, then install. Android will show an
+   "unknown app" warning since this isn't Play-Store-signed; that's
+   expected for a self-built debug APK, not a red flag on its own.
+5. Open the app, set your master password, and go.
+
+Prefer Android Studio anyway? Clone the repo and open it there — nothing
+extra to configure, since the Android target is already wired in.
 
 ## Why
 
