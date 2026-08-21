@@ -155,7 +155,7 @@ class AndroidBiometricKeyStore(private val activity: FragmentActivity) : Biometr
                 .build()
 
             continuation.invokeOnCancellation { prompt.cancelAuthentication() }
-            prompt.authenticate(BiometricPrompt.CryptoObject(cipher))
+            prompt.authenticate(info, BiometricPrompt.CryptoObject(cipher))
         }
     }
 }

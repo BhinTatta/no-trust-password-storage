@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     kotlin("android")
     kotlin("plugin.compose")
+    kotlin("plugin.serialization")
 }
 
 // Version choices here (AGP 8.7.x, this Compose BOM) favor a pattern that's
@@ -37,6 +38,12 @@ android {
 
 dependencies {
     implementation(project(":shared"))
+    // VaultRepository's own ThrottleState uses @Serializable/Json directly
+    // (a small local-only file, separate from the vault itself) — this
+    // module needs its own copy of the dependency, not just a transitive
+    // one via :shared, since Gradle's `implementation` deps aren't exposed
+    // to consumers by default.
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
     val composeBom = platform("androidx.compose:compose-bom:2024.09.03")
     implementation(composeBom)
