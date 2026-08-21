@@ -2,11 +2,14 @@ package com.notrust.vault.android
 
 import android.os.Bundle
 import android.view.WindowManager
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.fragment.app.FragmentActivity
 import com.notrust.vault.android.ui.VaultApp
 
-class MainActivity : ComponentActivity() {
+// FragmentActivity, not the more minimal ComponentActivity — BiometricPrompt
+// requires one. setContent (Compose) still works: FragmentActivity extends
+// ComponentActivity, and setContent is an extension on that base type.
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -15,8 +18,9 @@ class MainActivity : ComponentActivity() {
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
 
         val repository = VaultRepository(filesDir)
+        val biometricKeyStore = AndroidBiometricKeyStore(this)
         setContent {
-            VaultApp(repository)
+            VaultApp(repository, biometricKeyStore)
         }
     }
 }

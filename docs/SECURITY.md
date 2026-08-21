@@ -83,16 +83,27 @@ responsibility, same model as a hardware crypto wallet.
 ## Decoy / duress password (Settings)
 
 Configurable from **Settings → Security → Decoy password**:
-- You set a second, different password.
+- You set a second, different password (setup rejects a decoy password
+  identical to your real one — the real vault is always tried first on
+  unlock, so an identical decoy password would simply be unreachable).
 - Unlocking with it (instead of the real master password) opens a
-  separate, cosmetically identical vault — empty by default, or you can
-  seed it with a few harmless-looking dummy entries.
+  separate, cosmetically identical, initially empty vault — you can seed
+  it yourself with a few harmless-looking entries if you want.
 - The decoy vault is its own independent vault file with its own DEK;
   there is no way to derive the real vault from the decoy one, and no UI
   element hints at the real vault's existence while the decoy is open.
 - This is off by default and entirely optional — it exists for the
   "someone is forcing me to unlock my phone" scenario, not as a primary
   feature.
+- **What this doesn't hide**: the real and decoy vaults are two separate
+  files on disk (`vault.json`, `vault_decoy.json`). Someone with root or
+  physical file access to the device can see that a second vault file
+  exists, even if they can't tell which one (if either) is real without a
+  password. True forensic deniability — making the two indistinguishable
+  on disk — is a meaningfully bigger design (interleaved/padded
+  ciphertext with no structural difference) than this feature's stated
+  threat model (a coerced live unlock, not a forensic device search) calls
+  for, so it's stated as a limit rather than solved for.
 
 ## Local storage: a custom encrypted container, not SQLCipher
 

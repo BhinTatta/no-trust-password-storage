@@ -42,6 +42,18 @@ class VaultSession private constructor(
         return browseIndex.toList()
     }
 
+    /**
+     * Exposes the raw browse DEK once, for the biometric setup flow only:
+     * "enable biometric unlock" means wrapping this with a platform
+     * `BiometricKeyStore.wrap` call so future app launches can reach
+     * [fromBrowseDek] without the master password. Not used anywhere else
+     * — this is the one deliberate escape hatch, named accordingly.
+     */
+    fun exportBrowseDekForBiometricSetup(): ByteArray {
+        requireUnlocked()
+        return browseDek.copyOf()
+    }
+
     fun search(query: String): List<BrowseIndexItem> {
         requireUnlocked()
         if (query.isBlank()) return list()
@@ -144,12 +156,23 @@ class VaultSession private constructor(
             val masterKey = VaultCrypto.deriveKey(masterPassword, file.salt, file.kdf)
             try {
                 val browseDek = VaultCrypto.unwrapKey(file.wrappedBrowseDek, masterKey)
-                val indexJson = VaultCrypto.decrypt(file.browseIndex, browseDek).decodeToString()
-                val index = Json.decodeFromString(ListSerializer(BrowseIndexItem.serializer()), indexJson).toMutableList()
-                return VaultSession(file, browseDek, index)
+                return fromBrowseDek(file, browseDek)
             } finally {
                 VaultCrypto.wipe(masterKey)
             }
+        }
+
+        /**
+         * The biometric-only unlock path: [browseDek] comes from a
+         * platform `BiometricKeyStore.unwrap` call rather than the master
+         * password. This can only ever reach the browse tier — [reveal]
+         * and [upsertSecret] still always require the master password,
+         * fresh, every time, regardless of how the session was unlocked.
+         */
+        fun fromBrowseDek(file: VaultFile, browseDek: ByteArray): VaultSession {
+            val indexJson = VaultCrypto.decrypt(file.browseIndex, browseDek).decodeToString()
+            val index = Json.decodeFromString(ListSerializer(BrowseIndexItem.serializer()), indexJson).toMutableList()
+            return VaultSession(file, browseDek.copyOf(), index)
         }
     }
 }

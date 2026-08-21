@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,9 +28,13 @@ import androidx.compose.ui.unit.dp
 fun UnlockScreen(
     isWorking: Boolean,
     errorMessage: String?,
-    onUnlock: (masterPassword: String) -> Unit
+    throttleSecondsRemaining: Int,
+    biometricAvailable: Boolean,
+    onUnlock: (masterPassword: String) -> Unit,
+    onBiometricUnlock: () -> Unit
 ) {
     var password by remember { mutableStateOf("") }
+    val throttled = throttleSecondsRemaining > 0
 
     Column(
         modifier = Modifier.fillMaxSize().padding(32.dp),
@@ -58,16 +63,33 @@ fun UnlockScreen(
         if (errorMessage != null) {
             Text(errorMessage, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
         }
+        if (throttled) {
+            Text(
+                "Too many wrong attempts. Try again in ${throttleSecondsRemaining}s.",
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
 
         Button(
             onClick = { onUnlock(password) },
-            enabled = !isWorking && password.isNotEmpty(),
+            enabled = !isWorking && !throttled && password.isNotEmpty(),
             modifier = Modifier.fillMaxWidth().padding(top = 24.dp)
         ) {
             if (isWorking) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp))
             } else {
                 Text("Unlock")
+            }
+        }
+
+        if (biometricAvailable) {
+            OutlinedButton(
+                onClick = onBiometricUnlock,
+                enabled = !isWorking && !throttled,
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+            ) {
+                Text("Unlock with biometrics")
             }
         }
     }

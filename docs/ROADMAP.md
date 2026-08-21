@@ -49,11 +49,38 @@
 - **Goal:** a fully usable, fully local password manager with the two-tier
   reveal model already in place, before biometrics or sync exist.
 
-### Phase 2 — Biometrics + decoy password
-- Android Keystore/StrongBox browse-index key, wired to `BiometricPrompt`.
-- Settings → Security → decoy password setup flow (second password, second
-  independent vault, seedable with dummy entries).
-- `FLAG_SECURE`, clipboard auto-clear, rate-limited unlock attempts, root/tamper banner.
+### Phase 2 — Biometrics + decoy password — written, pending build verification
+- **Shared module** (`VaultSession.fromBrowseDek`, `exportBrowseDekForBiometricSetup`)
+  is verified for real — 3 new tests, 40 total, all passing. Biometric
+  unlock can only ever reach the browse tier: `reveal`/`upsertSecret`
+  still always take the master password fresh, no matter which unlock
+  path got you there.
+- **`AndroidBiometricKeyStore`**: Keystore-backed AES-GCM key
+  (StrongBox-backed where available, falling back cleanly when it isn't),
+  `setUserAuthenticationRequired`/`setInvalidatedByBiometricEnrollment`,
+  wired to `BiometricPrompt.CryptoObject`. This is the single least-verified
+  file in the whole project — no device or emulator existed to test
+  against — see the warning at the top of that file and the activation
+  checklist in `docs/ARCHITECTURE.md`.
+- **Decoy password**: Settings → Security. A second, independent vault
+  file (`vault_decoy.json`); unlocking tries the real vault first, then
+  the decoy, so the flow is identical either way. Setup rejects a decoy
+  password identical to the real one (otherwise it's unreachable, since
+  the real vault always matches first). Caveat, stated plainly rather than
+  oversold: this doesn't hide the *existence* of a second file from
+  someone with root/file access to the device — true forensic
+  deniability would need the two vaults' ciphertext to be
+  indistinguishable on disk, which is meaningfully more complexity than
+  this feature's stated threat model (a coerced unlock, not a forensic
+  device search) asks for.
+- **Rate-limited unlock**: `UnlockThrottle` (shared, tested) decides the
+  delay; `VaultRepository` persists the attempt counter locally,
+  non-synced. No attempt limit ever deletes anything — see docs/SECURITY.md.
+- **Root/tamper banner**: `DeviceIntegrity` — su-binary paths, test-keys
+  build tag, attached debugger. Non-blocking, and *will* trigger while
+  running the app from Android Studio's debugger — that's an attached
+  debugger doing exactly what it's detecting, not a bug.
+- `FLAG_SECURE` and clipboard auto-clear already shipped in Phase 1.
 
 ### Phase 3 — Google Drive sync
 - Google Sign-In, `drive.file` scope, appDataFolder upload/download.

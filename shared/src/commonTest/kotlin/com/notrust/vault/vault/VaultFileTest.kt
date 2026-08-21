@@ -170,4 +170,47 @@ class VaultFileTest {
             session.reveal(masterPassword, "does-not-exist")
         }
     }
+
+    // --- Biometric-only unlock path (fromBrowseDek) ---
+
+    @Test
+    fun fromBrowseDek_seesTheSameBrowseIndexAsMasterPasswordUnlock() = runTest {
+        VaultCrypto.ensureInitialized()
+        val file = VaultFile.createNew(masterPassword)
+        val passwordSession = VaultSession.unlock(file, masterPassword)
+        passwordSession.upsertSecret(masterPassword, null, "alias", "site", EntrySecrets("u", "p"))
+
+        val exportedBrowseDek = passwordSession.exportBrowseDekForBiometricSetup()
+        val biometricSession = VaultSession.fromBrowseDek(passwordSession.currentFile, exportedBrowseDek)
+
+        assertEquals(passwordSession.list(), biometricSession.list())
+    }
+
+    @Test
+    fun fromBrowseDek_stillRequiresMasterPasswordToReveal() = runTest {
+        VaultCrypto.ensureInitialized()
+        val file = VaultFile.createNew(masterPassword)
+        val passwordSession = VaultSession.unlock(file, masterPassword)
+        passwordSession.upsertSecret(masterPassword, null, "alias", "site", EntrySecrets("u", "p"))
+        val exportedBrowseDek = passwordSession.exportBrowseDekForBiometricSetup()
+
+        val biometricSession = VaultSession.fromBrowseDek(passwordSession.currentFile, exportedBrowseDek)
+        val id = biometricSession.list().single().id
+
+        // The whole point: reaching this session via the browse DEK alone
+        // must not shortcut the master-password requirement for secrets.
+        assertFailsWith<IllegalArgumentException> {
+            biometricSession.reveal("", id) // empty password -> fails validation before even trying to decrypt
+        }
+        assertEquals(EntrySecrets("u", "p"), biometricSession.reveal(masterPassword, id))
+    }
+
+    @Test
+    fun fromBrowseDek_withWrongDek_failsToDecryptTheIndex() = runTest {
+        VaultCrypto.ensureInitialized()
+        val file = VaultFile.createNew(masterPassword)
+        assertFailsWith<VaultDecryptionFailed> {
+            VaultSession.fromBrowseDek(file, VaultCrypto.generateDek())
+        }
+    }
 }
