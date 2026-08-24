@@ -8,10 +8,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -33,6 +36,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.notrust.vault.android.ui.CipherRainBackground
 import com.notrust.vault.android.ui.theme.VaultColors
+import com.notrust.vault.android.ui.theme.VaultFieldShape
 import com.notrust.vault.android.ui.theme.VaultLabelTextStyle
 import com.notrust.vault.android.ui.theme.vaultFieldColors
 
@@ -49,7 +53,14 @@ fun CreateVaultScreen(
         CipherRainBackground(modifier = Modifier.fillMaxSize())
 
         Column(
-            modifier = Modifier.fillMaxSize().padding(28.dp),
+            // imePadding() + verticalScroll() together are what let this
+            // form shift/scroll to keep the focused field above the
+            // keyboard, instead of the field just disappearing behind it.
+            modifier = Modifier
+                .fillMaxSize()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(28.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -79,7 +90,7 @@ fun CreateVaultScreen(
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
-                    colors = vaultFieldColors(),
+                    shape = VaultFieldShape, colors = vaultFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
@@ -90,7 +101,7 @@ fun CreateVaultScreen(
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
-                    colors = vaultFieldColors(),
+                    shape = VaultFieldShape, colors = vaultFieldColors(),
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
                 )
 

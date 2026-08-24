@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -46,7 +47,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.notrust.vault.android.ui.CATEGORY_STYLES
 import com.notrust.vault.android.ui.theme.VaultColors
+import com.notrust.vault.android.ui.theme.VaultFieldShape
 import com.notrust.vault.android.ui.theme.VaultLabelTextStyle
+import com.notrust.vault.android.ui.theme.VaultScreenTitleTextStyle
 import com.notrust.vault.android.ui.theme.vaultFieldColors
 import com.notrust.vault.model.EntrySecrets
 import com.notrust.vault.vault.EntryIconCategory
@@ -93,7 +96,12 @@ fun AddEditEntryScreen(
         containerColor = VaultColors.Void,
         topBar = {
             TopAppBar(
-                title = { Text(if (initial == null) "ADD ENTRY" else "EDIT ENTRY", style = VaultLabelTextStyle) },
+                title = {
+                    Text(
+                        if (initial == null) "Add entry" else "Edit entry",
+                        style = VaultScreenTitleTextStyle.copy(color = VaultColors.TextPrimary)
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -107,31 +115,32 @@ fun AddEditEntryScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .imePadding()
                 .verticalScroll(rememberScrollState())
+                .padding(16.dp)
         ) {
             OutlinedTextField(
                 alias, { alias = it }, label = { Text("Alias") }, singleLine = true,
-                colors = vaultFieldColors(), modifier = Modifier.fillMaxWidth()
+                shape = VaultFieldShape, colors = vaultFieldColors(), modifier = Modifier.fillMaxWidth()
             )
             OutlinedTextField(
                 siteName, { siteName = it }, label = { Text("Website / service") }, singleLine = true,
-                colors = vaultFieldColors(), modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                shape = VaultFieldShape, colors = vaultFieldColors(), modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
             )
             OutlinedTextField(
                 username, { username = it }, label = { Text("Username") }, singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
-                colors = vaultFieldColors(), modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                shape = VaultFieldShape, colors = vaultFieldColors(), modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
             )
             OutlinedTextField(
                 password, { password = it }, label = { Text("Password") }, singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
-                colors = vaultFieldColors(), modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                shape = VaultFieldShape, colors = vaultFieldColors(), modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
             )
             OutlinedTextField(
                 notes, { notes = it }, label = { Text("Notes (optional)") },
-                colors = vaultFieldColors(), modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                shape = VaultFieldShape, colors = vaultFieldColors(), modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
             )
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -177,7 +186,7 @@ fun AddEditEntryScreen(
                     onValueChange = { newTagText = it },
                     label = { Text("Custom tag") },
                     singleLine = true,
-                    colors = vaultFieldColors(),
+                    shape = VaultFieldShape, colors = vaultFieldColors(),
                     modifier = Modifier.weight(1f)
                 )
                 IconButton(
@@ -243,7 +252,7 @@ fun AddEditEntryScreen(
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 isError = errorMessage != null,
-                colors = vaultFieldColors(),
+                shape = VaultFieldShape, colors = vaultFieldColors(),
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
             )
             if (errorMessage != null) {

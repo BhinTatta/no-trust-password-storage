@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches VaultColors.Void in Theme.kt — the adaptive icon's background
+         layer must stay in lockstep with the in-app brand color by hand,
+         since resource XML can't reference a Kotlin constant. -->
+    <color name="ic_launcher_background">#04060A</color>
+</resources>

@@ -3,6 +3,7 @@ package com.notrust.vault.android
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.fragment.app.FragmentActivity
 import com.notrust.vault.android.ui.VaultApp
 
@@ -12,6 +13,12 @@ import com.notrust.vault.android.ui.VaultApp
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Edge-to-edge is what lets Compose's own WindowInsets.ime /
+        // Modifier.imePadding() drive keyboard-avoidance correctly and
+        // consistently — without it, insets are reported unreliably across
+        // OEMs and form fields can end up hidden behind the keyboard.
+        enableEdgeToEdge()
 
         // Block screenshots, screen recording, and the recents-list
         // thumbnail for the entire app lifetime — see docs/SECURITY.md.

@@ -17,12 +17,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -36,6 +34,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.notrust.vault.android.ui.theme.VaultColors
 import com.notrust.vault.android.ui.theme.VaultLabelTextStyle
+import com.notrust.vault.android.ui.theme.VaultScreenTitleTextStyle
 
 /**
  * There are no accounts in this app — no name, no email, nothing to sign
@@ -49,21 +48,17 @@ fun ProfileScreen(
     tagCounts: List<Pair<String, Int>>,
     biometricEnabled: Boolean,
     decoyConfigured: Boolean,
-    onBack: () -> Unit
+    bottomBar: @Composable () -> Unit = {}
 ) {
     Scaffold(
         containerColor = VaultColors.Void,
         topBar = {
             TopAppBar(
-                title = { Text("VAULT STATUS", style = VaultLabelTextStyle.copy(color = VaultColors.Signal)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
+                title = { Text("Vault status", style = VaultScreenTitleTextStyle.copy(color = VaultColors.TextPrimary)) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = VaultColors.Void)
             )
-        }
+        },
+        bottomBar = bottomBar
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

@@ -19,15 +19,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -42,7 +39,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.notrust.vault.android.ui.EntryIconBadge
 import com.notrust.vault.android.ui.theme.VaultColors
-import com.notrust.vault.android.ui.theme.VaultLabelTextStyle
+import com.notrust.vault.android.ui.theme.VaultFieldShape
+import com.notrust.vault.android.ui.theme.VaultScreenTitleTextStyle
 import com.notrust.vault.android.ui.theme.vaultFieldColors
 import com.notrust.vault.model.BrowseIndexItem
 
@@ -56,28 +54,18 @@ fun BrowseScreen(
     onTagSelected: (String?) -> Unit,
     onItemClick: (BrowseIndexItem) -> Unit,
     onAddClick: () -> Unit,
-    onSettingsClick: () -> Unit,
-    onProfileClick: () -> Unit,
-    integrityWarning: Boolean
+    integrityWarning: Boolean,
+    bottomBar: @Composable () -> Unit = {}
 ) {
     Scaffold(
         containerColor = VaultColors.Void,
         topBar = {
             TopAppBar(
-                title = { Text("VAULT", style = VaultLabelTextStyle.copy(color = VaultColors.Signal)) },
-                navigationIcon = {
-                    IconButton(onClick = onProfileClick) {
-                        Icon(Icons.Default.AccountCircle, contentDescription = "Profile")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = onSettingsClick) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
-                    }
-                },
+                title = { Text("Vault", style = VaultScreenTitleTextStyle.copy(color = VaultColors.TextPrimary)) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = VaultColors.Void)
             )
         },
+        bottomBar = bottomBar,
         floatingActionButton = {
             FloatingActionButton(onClick = onAddClick, containerColor = VaultColors.Signal, contentColor = Color(0xFF00201C)) {
                 Icon(Icons.Default.Add, contentDescription = "Add entry")
@@ -99,7 +87,7 @@ fun BrowseScreen(
                 onValueChange = onQueryChange,
                 label = { Text("Search") },
                 singleLine = true,
-                colors = vaultFieldColors(),
+                shape = VaultFieldShape, colors = vaultFieldColors(),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
             )
 

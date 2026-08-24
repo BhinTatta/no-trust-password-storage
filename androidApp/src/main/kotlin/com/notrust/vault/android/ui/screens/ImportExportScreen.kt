@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -40,7 +41,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.notrust.vault.android.ui.theme.VaultColors
+import com.notrust.vault.android.ui.theme.VaultFieldShape
 import com.notrust.vault.android.ui.theme.VaultLabelTextStyle
+import com.notrust.vault.android.ui.theme.VaultScreenTitleTextStyle
 import com.notrust.vault.android.ui.theme.vaultFieldColors
 import kotlinx.coroutines.launch
 import java.io.File
@@ -107,7 +110,7 @@ fun ImportExportScreen(
         containerColor = VaultColors.Void,
         topBar = {
             TopAppBar(
-                title = { Text("IMPORT / EXPORT", style = VaultLabelTextStyle.copy(color = VaultColors.Signal)) },
+                title = { Text("Import / Export", style = VaultScreenTitleTextStyle.copy(color = VaultColors.TextPrimary)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -121,8 +124,9 @@ fun ImportExportScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .imePadding()
                 .verticalScroll(rememberScrollState())
+                .padding(16.dp)
         ) {
             Text("EXPORT", style = VaultLabelTextStyle.copy(color = VaultColors.TextMuted))
             Text(
@@ -179,7 +183,7 @@ fun ImportExportScreen(
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    colors = vaultFieldColors(),
+                    shape = VaultFieldShape, colors = vaultFieldColors(),
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                 )
                 Button(

@@ -9,9 +9,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
@@ -44,6 +47,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.notrust.vault.android.ui.EntryIconBadge
 import com.notrust.vault.android.ui.theme.VaultColors
+import com.notrust.vault.android.ui.theme.VaultFieldShape
 import com.notrust.vault.android.ui.theme.VaultLabelTextStyle
 import com.notrust.vault.android.ui.theme.vaultFieldColors
 import com.notrust.vault.model.BrowseIndexItem
@@ -91,7 +95,14 @@ fun EntryDetailScreen(
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp)
+        ) {
             EntryIconBadge(siteName = item.siteName, alias = item.alias, tags = item.tags, iconOverride = item.iconOverride, size = 56.dp)
             Spacer(modifier = Modifier.height(12.dp))
             Text(item.siteName, style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace, color = VaultColors.TextMuted)
@@ -138,7 +149,7 @@ private fun RevealPrompt(isRevealing: Boolean, error: String?, onRevealRequest: 
         visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         isError = error != null,
-        colors = vaultFieldColors(),
+        shape = VaultFieldShape, colors = vaultFieldColors(),
         modifier = Modifier.fillMaxWidth()
     )
     if (error != null) {

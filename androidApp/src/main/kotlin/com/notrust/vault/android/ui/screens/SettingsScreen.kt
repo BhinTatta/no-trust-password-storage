@@ -6,15 +6,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -34,7 +33,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.notrust.vault.android.ui.theme.VaultColors
+import com.notrust.vault.android.ui.theme.VaultFieldShape
 import com.notrust.vault.android.ui.theme.VaultLabelTextStyle
+import com.notrust.vault.android.ui.theme.VaultScreenTitleTextStyle
 import com.notrust.vault.android.ui.theme.vaultFieldColors
 
 @Composable
@@ -46,23 +47,26 @@ fun SettingsScreen(
     decoyError: String?,
     onSetupDecoy: (decoyPassword: String) -> Unit,
     onImportExportClick: () -> Unit,
-    onBack: () -> Unit
+    bottomBar: @Composable () -> Unit = {}
 ) {
     Scaffold(
         containerColor = VaultColors.Void,
         topBar = {
             TopAppBar(
-                title = { Text("SETTINGS", style = VaultLabelTextStyle.copy(color = VaultColors.Signal)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
+                title = { Text("Settings", style = VaultScreenTitleTextStyle.copy(color = VaultColors.TextPrimary)) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = VaultColors.Void)
             )
-        }
+        },
+        bottomBar = bottomBar
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp)
+        ) {
             Text("SECURITY", style = VaultLabelTextStyle.copy(color = VaultColors.TextMuted))
 
             Row(
@@ -115,7 +119,7 @@ fun SettingsScreen(
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    colors = vaultFieldColors(),
+                    shape = VaultFieldShape, colors = vaultFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
@@ -125,7 +129,7 @@ fun SettingsScreen(
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    colors = vaultFieldColors(),
+                    shape = VaultFieldShape, colors = vaultFieldColors(),
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                 )
                 if (decoyError != null) {

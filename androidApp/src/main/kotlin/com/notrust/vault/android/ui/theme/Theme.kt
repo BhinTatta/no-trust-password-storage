@@ -1,6 +1,7 @@
 package com.notrust.vault.android.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Typography
@@ -11,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
@@ -81,12 +83,33 @@ val VaultMonoTextStyle = TextStyle(
     letterSpacing = 0.2.sp
 )
 
-/** Section labels and the unlock/reveal actions get a wide-tracked uppercase treatment — a console feel, not a form. */
+/**
+ * Section labels ("SECURITY", "TAGS"), action-button text, and other small
+ * meta text get a wide-tracked uppercase treatment — a console feel, kept
+ * deliberately small and secondary. Never used for a screen's primary
+ * title (see [VaultScreenTitleTextStyle]) — applying the same tiny tracked
+ * caps to everything, headline included, is what read as a first pass
+ * rather than a considered hierarchy.
+ */
 val VaultLabelTextStyle = TextStyle(
     fontFamily = FontFamily.Monospace,
     fontWeight = FontWeight.Medium,
     letterSpacing = 1.8.sp,
     fontSize = 12.sp
+)
+
+/**
+ * A screen's primary title (top bar, headline) — clean sans, real weight,
+ * sized to actually read as a title. Deliberately not the Signal accent
+ * color: Signal means "live cryptographic material" elsewhere in this
+ * app (unlock, reveal), and a title isn't that — using TextPrimary here
+ * keeps that signal meaningful instead of diluting it into decoration.
+ */
+val VaultScreenTitleTextStyle = TextStyle(
+    fontFamily = FontFamily.Default,
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 20.sp,
+    letterSpacing = 0.1.sp
 )
 
 private val VaultTypography = Typography(
@@ -97,14 +120,28 @@ private val VaultTypography = Typography(
     labelLarge = TextStyle(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium, fontSize = 13.sp, letterSpacing = 1.sp)
 )
 
-/** Every text field in the app shares this — the signal color on focus, never the default Material blue/purple. */
+/** Rounded, generous corners for every field/card — the small default Material radius is a big part of what reads as "generic form" rather than "premium product." */
+val VaultFieldShape = RoundedCornerShape(14.dp)
+
+/**
+ * Every text field in the app shares this. No visible border at rest —
+ * fields read as soft, filled surfaces, the way most premium mobile
+ * products treat inputs — and gain a clean signal-cyan outline only on
+ * focus, which also doubles as feedback that this field is now "live."
+ */
 @Composable
 fun vaultFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = VaultColors.Signal,
-    unfocusedBorderColor = VaultColors.Hairline,
+    unfocusedBorderColor = Color.Transparent,
+    disabledBorderColor = Color.Transparent,
     focusedContainerColor = VaultColors.SurfaceRaised,
     unfocusedContainerColor = VaultColors.SurfaceRaised,
-    cursorColor = VaultColors.Signal
+    disabledContainerColor = VaultColors.SurfaceRaised,
+    cursorColor = VaultColors.Signal,
+    focusedLabelColor = VaultColors.Signal,
+    unfocusedLabelColor = VaultColors.TextMuted,
+    focusedTextColor = VaultColors.TextPrimary,
+    unfocusedTextColor = VaultColors.TextPrimary
 )
 
 @Composable

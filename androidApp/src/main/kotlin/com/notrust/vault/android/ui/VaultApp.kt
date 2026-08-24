@@ -2,9 +2,18 @@ package com.notrust.vault.android.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -35,6 +44,7 @@ import com.notrust.vault.android.ui.screens.ProfileScreen
 import com.notrust.vault.android.ui.screens.SettingsScreen
 import com.notrust.vault.android.ui.screens.UnlockScreen
 import com.notrust.vault.android.ui.theme.NoTrustVaultTheme
+import com.notrust.vault.android.ui.theme.VaultColors
 import com.notrust.vault.crypto.VaultDecryptionFailed
 import com.notrust.vault.model.BrowseIndexItem
 import com.notrust.vault.model.EntrySecrets
@@ -263,9 +273,8 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                         onTagSelected = { selectedTag = it },
                         onItemClick = { screen = Screen.EntryDetail(it) },
                         onAddClick = { screen = Screen.AddEdit(entryId = null, initial = null) },
-                        onSettingsClick = { screen = Screen.Settings },
-                        onProfileClick = { screen = Screen.Profile },
-                        integrityWarning = integrityWarning
+                        integrityWarning = integrityWarning,
+                        bottomBar = { VaultBottomNavBar(current = screen, onNavigate = { screen = it }) }
                     )
                 }
 
@@ -279,7 +288,7 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                         tagCounts = tagCounts,
                         biometricEnabled = biometricEnabled,
                         decoyConfigured = decoyConfigured,
-                        onBack = { screen = Screen.Browse }
+                        bottomBar = { VaultBottomNavBar(current = screen, onNavigate = { screen = it }) }
                     )
                 }
 
@@ -389,7 +398,7 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                             }
                         },
                         onImportExportClick = { screen = Screen.ImportExport },
-                        onBack = { screen = Screen.Browse }
+                        bottomBar = { VaultBottomNavBar(current = screen, onNavigate = { screen = it }) }
                     )
                 }
 
@@ -442,6 +451,49 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                 }
             }
         }
+    }
+}
+
+/**
+ * The three peer destinations reachable at any time once unlocked — Vault,
+ * Status, Settings — replacing what used to be separate top-bar icon taps.
+ * A persistent bottom tab bar (rather than pushed screens reached from
+ * scattered icons) is the standard pattern premium mobile apps use for
+ * top-level navigation; EntryDetail/AddEdit/ImportExport stay as pushed
+ * flows on top of it, each with their own back arrow, since those aren't
+ * peer destinations.
+ */
+@Composable
+private fun VaultBottomNavBar(current: Screen, onNavigate: (Screen) -> Unit) {
+    val itemColors = NavigationBarItemDefaults.colors(
+        selectedIconColor = VaultColors.Signal,
+        selectedTextColor = VaultColors.Signal,
+        indicatorColor = VaultColors.SurfaceRaised,
+        unselectedIconColor = VaultColors.TextMuted,
+        unselectedTextColor = VaultColors.TextMuted
+    )
+    NavigationBar(containerColor = VaultColors.Surface) {
+        NavigationBarItem(
+            selected = current is Screen.Browse,
+            onClick = { onNavigate(Screen.Browse) },
+            icon = { Icon(Icons.Default.Lock, contentDescription = null) },
+            label = { Text("Vault") },
+            colors = itemColors
+        )
+        NavigationBarItem(
+            selected = current is Screen.Profile,
+            onClick = { onNavigate(Screen.Profile) },
+            icon = { Icon(Icons.Default.Shield, contentDescription = null) },
+            label = { Text("Status") },
+            colors = itemColors
+        )
+        NavigationBarItem(
+            selected = current is Screen.Settings,
+            onClick = { onNavigate(Screen.Settings) },
+            icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+            label = { Text("Settings") },
+            colors = itemColors
+        )
     }
 }
 
