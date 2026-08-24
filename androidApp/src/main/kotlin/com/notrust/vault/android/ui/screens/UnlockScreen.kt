@@ -44,6 +44,7 @@ fun UnlockScreen(
     errorMessage: String?,
     throttleSecondsRemaining: Int,
     biometricAvailable: Boolean,
+    isBiometricWorking: Boolean,
     onUnlock: (masterPassword: String) -> Unit,
     onBiometricUnlock: () -> Unit
 ) {
@@ -125,10 +126,19 @@ fun UnlockScreen(
                 if (biometricAvailable) {
                     OutlinedButton(
                         onClick = onBiometricUnlock,
-                        enabled = !isWorking && !throttled,
+                        // Deliberately gated on isBiometricWorking alone, not
+                        // isWorking too: if the biometric prompt ever hangs
+                        // (see AndroidBiometricKeyStore's own caveat about this
+                        // being unverifiable without a real device), the master
+                        // password path below must stay usable regardless.
+                        enabled = !isBiometricWorking && !throttled,
                         modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
                     ) {
-                        Text("UNLOCK WITH BIOMETRICS", style = VaultLabelTextStyle)
+                        if (isBiometricWorking) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = VaultColors.Signal)
+                        } else {
+                            Text("UNLOCK WITH BIOMETRICS", style = VaultLabelTextStyle)
+                        }
                     }
                 }
             }

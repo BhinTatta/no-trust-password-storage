@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
 import com.notrust.vault.android.BiometricPromptException
 import com.notrust.vault.android.DeviceIntegrity
 import com.notrust.vault.android.VaultKind
@@ -134,7 +135,15 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                 }
 
                 Screen.Unlock -> {
+                    // Deliberately two separate flags, not one shared
+                    // "isWorking": if the biometric prompt ever hangs (it's
+                    // the one thing here that's never been verified on a
+                    // real device — see AndroidBiometricKeyStore's class
+                    // doc), that must never disable the master-password
+                    // button too. The password path has to work no matter
+                    // what biometrics are doing.
                     var working by remember { mutableStateOf(false) }
+                    var biometricWorking by remember { mutableStateOf(false) }
                     var error by remember { mutableStateOf<String?>(null) }
                     var throttleSeconds by remember { mutableStateOf(0) }
 
@@ -148,7 +157,7 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                     }
 
                     suspend fun runBiometricUnlock(auto: Boolean) {
-                        working = true
+                        biometricWorking = true
                         error = null
                         try {
                             val wrapped = repository.loadBiometricWrappedBrowseDek()
@@ -174,16 +183,23 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                         } catch (e: Exception) {
                             error = "Biometric unlock failed: ${e.message}"
                         } finally {
-                            working = false
+                            biometricWorking = false
                         }
                     }
 
-                    // Auto-trigger once per Unlock-screen visit — the user
-                    // should not have to tap a button when biometric unlock
-                    // is already set up, but re-showing itself after a
-                    // cancel would be an unclosable-feeling loop.
-                    LaunchedEffect(screen, biometricEnabled) {
-                        if (biometricEnabled) {
+                    // Auto-trigger once per Unlock-screen visit, but only once
+                    // the activity is actually resumed. Firing this the instant
+                    // `screen` flips to Unlock (which happens on ON_STOP, i.e.
+                    // while the app is backgrounding) calls
+                    // BiometricPrompt.authenticate() during a transitional
+                    // lifecycle state — on some devices that silently never
+                    // calls back at all, which used to leave biometricWorking
+                    // (previously the same flag the password button used)
+                    // stuck true forever. Gating on RESUMED avoids calling it
+                    // at that bad time in the first place.
+                    val lifecycleState by lifecycleOwner.lifecycle.currentStateAsState()
+                    LaunchedEffect(screen, biometricEnabled, lifecycleState) {
+                        if (biometricEnabled && lifecycleState == Lifecycle.State.RESUMED) {
                             runBiometricUnlock(auto = true)
                         }
                     }
@@ -193,6 +209,7 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                         errorMessage = error,
                         throttleSecondsRemaining = throttleSeconds,
                         biometricAvailable = biometricEnabled,
+                        isBiometricWorking = biometricWorking,
                         onUnlock = { password ->
                             scope.launch {
                                 working = true
