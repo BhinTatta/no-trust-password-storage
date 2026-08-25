@@ -36,7 +36,7 @@ enum class AccentOption(val id: String, val label: String, val color: Color) {
     VIOLET_PULSE("violet_pulse", "Violet Pulse", Color(0xFF9B8CFF));
 
     companion object {
-        val Default = SIGNAL_CYAN
+        val Default = ARCTIC_WHITE
         fun fromId(id: String?): AccentOption = entries.firstOrNull { it.id == id } ?: Default
     }
 }

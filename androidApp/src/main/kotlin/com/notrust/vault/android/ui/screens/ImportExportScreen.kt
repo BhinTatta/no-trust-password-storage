@@ -62,6 +62,13 @@ fun ImportExportScreen(
     statusIsError: Boolean,
     onExportRequested: suspend () -> ByteArray,
     onImportConfirmed: (bytes: ByteArray, masterPassword: String) -> Unit,
+    // Called right before handing off to a system picker/share sheet — the
+    // resulting onStop (a different Activity briefly takes the foreground)
+    // must not trigger the usual auto-lock-and-return-to-Unlock. Without
+    // this, opening the file picker to import wiped this screen's state
+    // before the picked file's bytes ever came back, making import look
+    // like it silently did nothing.
+    onExternalActivityStarting: () -> Unit = {},
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -102,6 +109,7 @@ fun ImportExportScreen(
                 putExtra(Intent.EXTRA_SUBJECT, "No-Trust Vault export")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
+            onExternalActivityStarting()
             context.startActivity(Intent.createChooser(intent, "Share vault export"))
         }
     }
@@ -136,7 +144,10 @@ fun ImportExportScreen(
                 modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
             )
             Button(
-                onClick = { saveLauncher.launch("no-trust-vault-export-${System.currentTimeMillis()}.json") },
+                onClick = {
+                    onExternalActivityStarting()
+                    saveLauncher.launch("no-trust-vault-export-${System.currentTimeMillis()}.json")
+                },
                 enabled = !isWorking,
                 colors = ButtonDefaults.buttonColors(containerColor = VaultColors.Signal, contentColor = Color(0xFF00201C)),
                 modifier = Modifier.fillMaxWidth()
@@ -161,7 +172,10 @@ fun ImportExportScreen(
                 modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
             )
             OutlinedButton(
-                onClick = { openLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*")) },
+                onClick = {
+                    onExternalActivityStarting()
+                    openLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*"))
+                },
                 enabled = !isWorking,
                 modifier = Modifier.fillMaxWidth()
             ) {

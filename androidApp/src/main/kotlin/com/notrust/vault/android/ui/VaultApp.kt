@@ -90,6 +90,10 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
             var biometricEnabled by remember { mutableStateOf(false) }
             var decoyConfigured by remember { mutableStateOf(false) }
             var currentAccent by remember { mutableStateOf(AccentOption.Default) }
+            // Consumed by the very next ON_STOP only — set right before we
+            // ourselves hand off to a system file picker or share sheet, so
+            // that expected transition doesn't trigger the auto-lock below.
+            var suppressAutoLockOnce by remember { mutableStateOf(false) }
 
             LaunchedEffect(Unit) {
                 integrityWarning = DeviceIntegrity.looksCompromised()
@@ -108,10 +112,14 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
             DisposableEffect(lifecycleOwner) {
                 val observer = LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_STOP) {
-                        session?.lock()
-                        session = null
-                        if (screen is Screen.Browse || screen is Screen.EntryDetail || screen is Screen.AddEdit || screen is Screen.Settings || screen is Screen.Profile || screen is Screen.ImportExport) {
-                            screen = Screen.Unlock
+                        if (suppressAutoLockOnce) {
+                            suppressAutoLockOnce = false
+                        } else {
+                            session?.lock()
+                            session = null
+                            if (screen is Screen.Browse || screen is Screen.EntryDetail || screen is Screen.AddEdit || screen is Screen.Settings || screen is Screen.Profile || screen is Screen.ImportExport) {
+                                screen = Screen.Unlock
+                            }
                         }
                     }
                 }
@@ -437,6 +445,7 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                         onExportRequested = {
                             repository.exportBytes(vaultKind)
                         },
+                        onExternalActivityStarting = { suppressAutoLockOnce = true },
                         onImportConfirmed = { bytes, masterPassword ->
                             scope.launch {
                                 working = true
