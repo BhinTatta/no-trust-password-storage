@@ -43,13 +43,13 @@ import com.notrust.vault.android.ui.screens.ImportExportScreen
 import com.notrust.vault.android.ui.screens.ProfileScreen
 import com.notrust.vault.android.ui.screens.SettingsScreen
 import com.notrust.vault.android.ui.screens.UnlockScreen
+import com.notrust.vault.android.ui.theme.AccentOption
 import com.notrust.vault.android.ui.theme.NoTrustVaultTheme
 import com.notrust.vault.android.ui.theme.VaultColors
 import com.notrust.vault.crypto.VaultDecryptionFailed
 import com.notrust.vault.model.BrowseIndexItem
 import com.notrust.vault.model.EntrySecrets
 import com.notrust.vault.vault.BiometricKeyStore
-import com.notrust.vault.vault.VaultFile
 import com.notrust.vault.vault.VaultSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -78,7 +78,6 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             val scope = rememberCoroutineScope()
             var screen by remember { mutableStateOf<Screen>(Screen.Loading) }
-            var vaultFile by remember { mutableStateOf<VaultFile?>(null) }
             var session by remember { mutableStateOf<VaultSession?>(null) }
             // Which on-disk file `session` currently belongs to — real or
             // decoy (see docs/SECURITY.md). Every save must go back to the
@@ -90,12 +89,15 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
             var biometricAvailable by remember { mutableStateOf(false) }
             var biometricEnabled by remember { mutableStateOf(false) }
             var decoyConfigured by remember { mutableStateOf(false) }
+            var currentAccent by remember { mutableStateOf(AccentOption.Default) }
 
             LaunchedEffect(Unit) {
                 integrityWarning = DeviceIntegrity.looksCompromised()
                 biometricAvailable = biometricKeyStore.isAvailable()
                 biometricEnabled = repository.biometricUnlockEnabled()
                 decoyConfigured = repository.exists(VaultKind.DECOY)
+                currentAccent = AccentOption.fromId(repository.loadAccentColorId())
+                VaultColors.applyAccent(currentAccent)
                 screen = if (repository.exists()) Screen.Unlock else Screen.CreateVault
             }
 
@@ -129,7 +131,6 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                             error = null
                             try {
                                 val file = repository.createVault(password)
-                                vaultFile = file
                                 session = repository.unlock(file, password)
                                 vaultKind = VaultKind.REAL
                                 screen = Screen.Browse
@@ -172,7 +173,12 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                         try {
                             val wrapped = repository.loadBiometricWrappedBrowseDek()
                             val browseDek = biometricKeyStore.unwrap(wrapped)
-                            val realFile = vaultFile ?: repository.load().also { vaultFile = it }
+                            // Always read fresh from disk here rather than reusing a cached
+                            // VaultFile — a stale in-memory copy is exactly how a save made
+                            // earlier in this same app session used to silently "disappear"
+                            // on the next unlock (it was still on disk; a cached pre-edit
+                            // snapshot was what got shown).
+                            val realFile = repository.load()
                             session = repository.unlockWithBrowseDek(realFile, browseDek)
                             vaultKind = VaultKind.REAL
                             screen = Screen.Browse
@@ -225,7 +231,12 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                                 working = true
                                 error = null
                                 try {
-                                    val realFile = vaultFile ?: repository.load().also { vaultFile = it }
+                                    // Always read fresh from disk here rather than reusing a cached
+                                    // VaultFile — a stale in-memory copy is exactly how a save made
+                                    // earlier in this same app session used to silently "disappear"
+                                    // on the next unlock (it was still on disk; a cached pre-edit
+                                    // snapshot was what got shown).
+                                    val realFile = repository.load()
                                     try {
                                         session = repository.unlock(realFile, password)
                                         vaultKind = VaultKind.REAL
@@ -375,7 +386,12 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                             scope.launch {
                                 decoyError = null
                                 try {
-                                    val realFile = vaultFile ?: repository.load().also { vaultFile = it }
+                                    // Always read fresh from disk here rather than reusing a cached
+                                    // VaultFile — a stale in-memory copy is exactly how a save made
+                                    // earlier in this same app session used to silently "disappear"
+                                    // on the next unlock (it was still on disk; a cached pre-edit
+                                    // snapshot was what got shown).
+                                    val realFile = repository.load()
                                     val sameAsReal = withContext(Dispatchers.Default) {
                                         try {
                                             VaultSession.unlock(realFile, decoyPassword).also { it.lock() }
@@ -398,6 +414,12 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                             }
                         },
                         onImportExportClick = { screen = Screen.ImportExport },
+                        currentAccent = currentAccent,
+                        onAccentSelected = { option ->
+                            currentAccent = option
+                            VaultColors.applyAccent(option)
+                            scope.launch { repository.saveAccentColorId(option.id) }
+                        },
                         bottomBar = { VaultBottomNavBar(current = screen, onNavigate = { screen = it }) }
                     )
                 }
@@ -431,7 +453,6 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                                     repository.replaceVault(candidate, VaultKind.REAL)
                                     currentSession.lock()
                                     session = restoredSession
-                                    vaultFile = candidate
                                     vaultKind = VaultKind.REAL
                                     status = "Vault restored."
                                     screen = Screen.Browse

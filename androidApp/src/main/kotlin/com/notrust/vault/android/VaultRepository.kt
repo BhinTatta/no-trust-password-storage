@@ -33,6 +33,7 @@ class VaultRepository(private val filesDir: File) {
     private val decoyFile = File(filesDir, "vault_decoy.json")
     private val throttleFile = File(filesDir, "unlock_throttle.json")
     private val biometricWrappedDekFile = File(filesDir, "browse_dek.bio")
+    private val accentPreferenceFile = File(filesDir, "accent_preference.txt")
 
     private fun fileFor(kind: VaultKind) = if (kind == VaultKind.REAL) realFile else decoyFile
 
@@ -162,6 +163,25 @@ class VaultRepository(private val filesDir: File) {
 
     suspend fun clearBiometricUnlock() = withContext(Dispatchers.IO) {
         biometricWrappedDekFile.delete()
+        Unit
+    }
+
+    // --- Appearance: accent color choice ---
+    //
+    // Purely cosmetic, local-only, non-secret — same reasoning as the
+    // unlock throttle above: it must never ride along inside the vault
+    // file, and a missing/corrupt file just falls back to the default
+    // accent rather than failing loud.
+
+    suspend fun loadAccentColorId(): String? = withContext(Dispatchers.IO) {
+        runCatching { accentPreferenceFile.takeIf { it.exists() }?.readText()?.trim()?.ifEmpty { null } }
+            .getOrNull()
+    }
+
+    suspend fun saveAccentColorId(id: String) = withContext(Dispatchers.IO) {
+        val tmp = File(filesDir, "${accentPreferenceFile.name}.tmp")
+        tmp.writeText(id)
+        tmp.renameTo(accentPreferenceFile)
         Unit
     }
 }

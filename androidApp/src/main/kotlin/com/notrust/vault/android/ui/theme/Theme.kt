@@ -8,6 +8,9 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -16,14 +19,38 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
+ * The curated set of accent choices offered in Settings → Appearance. All
+ * four are deliberately light/bright — every place in the app that draws
+ * text or an icon in [VaultColors.Signal] assumes it reads clearly against
+ * the near-black background, and every button that fills with it assumes
+ * the hardcoded near-black content color (Color(0xFF00201C)) stays legible
+ * on top. Picking only bright accents keeps both of those true without
+ * having to touch the ~30 call sites that already reference Signal.
+ * Deliberately no red (Danger already owns that meaning) and no green
+ * (see the cliché this app was explicitly designed to avoid — docs above).
+ */
+enum class AccentOption(val id: String, val label: String, val color: Color) {
+    SIGNAL_CYAN("signal_cyan", "Signal Cyan", Color(0xFF2EE6C4)),
+    ARCTIC_WHITE("arctic_white", "Arctic White", Color(0xFFF2F5F8)),
+    AMBER_GOLD("amber_gold", "Amber Gold", Color(0xFFFFC24B)),
+    VIOLET_PULSE("violet_pulse", "Violet Pulse", Color(0xFF9B8CFF));
+
+    companion object {
+        val Default = SIGNAL_CYAN
+        fun fromId(id: String?): AccentOption = entries.firstOrNull { it.id == id } ?: Default
+    }
+}
+
+/**
  * Deliberately not the default Material dynamic-color theme — see
  * docs/UI_DESIGN.md. This is a cipher/cryptography identity, not a
  * generic dark app: a near-black void, one electric cyan signal color
- * that means "this is live cryptographic material" (unlock, reveal,
- * active state), and a violet used only for depth/atmosphere (the
- * cipher-rain background, subtle glows) — never both accents competing
- * for the same job. Deliberately not Matrix green: that's the cliché
- * this is trying to read as something more considered than.
+ * (by default — see [AccentOption]) that means "this is live
+ * cryptographic material" (unlock, reveal, active state), and a violet
+ * used only for depth/atmosphere (the cipher-rain background, subtle
+ * glows) — never both accents competing for the same job. Deliberately
+ * no green option offered either: that's the cliché this whole identity
+ * is trying to read as something more considered than.
  */
 object VaultColors {
     val Void = Color(0xFF04060A)          // background — near-black, cold undertone
@@ -32,8 +59,13 @@ object VaultColors {
     val SurfaceRaised = Color(0xFF1A2030) // elevated surfaces, input fields
     val Hairline = Color(0xFF262E42)      // dividers, borders
 
-    val Signal = Color(0xFF2EE6C4)        // the one accent that means "cryptographic action"
-    val SignalDim = Color(0xFF1B8F7C)
+    // A mutable Compose-observed property, not a plain val: every screen
+    // already reads VaultColors.Signal directly (never through a
+    // CompositionLocal), so turning this into state is what lets a
+    // Settings → Appearance change repaint the whole app live without
+    // threading an accent parameter through every screen file.
+    var Signal by mutableStateOf(AccentOption.Default.color)
+        private set
     val Depth2 = Color(0xFF7C6CFF)        // atmosphere-only violet — never on interactive controls
 
     val TextPrimary = Color(0xFFEAF0F6)
@@ -41,6 +73,10 @@ object VaultColors {
     val TextFaint = Color(0xFF4A5468)
 
     val Danger = Color(0xFFFF5C72)
+
+    fun applyAccent(option: AccentOption) {
+        Signal = option.color
+    }
 }
 
 private val VaultDarkColorScheme = darkColorScheme(
