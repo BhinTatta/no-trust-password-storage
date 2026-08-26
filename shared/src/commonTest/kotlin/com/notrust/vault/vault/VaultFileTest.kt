@@ -218,7 +218,8 @@ class VaultFileTest {
         VaultCrypto.ensureInitialized()
         val file = VaultFile.createNew(masterPassword)
         val session = VaultSession.unlock(file, masterPassword)
-        session.upsertSecret(masterPassword, null, "alias", "site", EntrySecrets("u", "p", totpSeed = "JBSWY3DPEHPK3PXP"))
+        session.upsertSecret(masterPassword, null, "alias", "site", EntrySecrets("u", "p"))
+        session.upsertTotpEntry(masterPassword, id = null, alias = "Work Google", seed = "JBSWY3DPEHPK3PXP")
 
         val json = session.currentFile.toJson()
         val restored = VaultFile.fromJson(json)
@@ -227,7 +228,41 @@ class VaultFileTest {
         val restoredSession = VaultSession.unlock(restored, masterPassword)
         val id = restoredSession.list().single().id
         val revealed = restoredSession.reveal(masterPassword, id)
-        assertEquals("JBSWY3DPEHPK3PXP", revealed.totpSeed)
+        assertEquals("u", revealed.username)
+
+        val totpEntries = restoredSession.listTotpEntries(masterPassword)
+        assertEquals(1, totpEntries.size)
+        assertEquals("Work Google", totpEntries.single().alias)
+        assertEquals("JBSWY3DPEHPK3PXP", totpEntries.single().seed)
+    }
+
+    @Test
+    fun totpEntries_areIndependentOfPasswordEntries() = runTest {
+        VaultCrypto.ensureInitialized()
+        val file = VaultFile.createNew(masterPassword)
+        val session = VaultSession.unlock(file, masterPassword)
+
+        assertTrue(session.listTotpEntries(masterPassword).isEmpty())
+
+        session.upsertTotpEntry(masterPassword, id = null, alias = null, seed = "JBSWY3DPEHPK3PXP")
+        val afterAdd = session.listTotpEntries(masterPassword)
+        assertEquals(1, afterAdd.size)
+        assertNull(afterAdd.single().alias)
+        assertTrue(session.list().isEmpty(), "adding a TOTP entry must not create a browse-index item")
+
+        val id = afterAdd.single().id
+        session.deleteTotpEntry(masterPassword, id)
+        assertTrue(session.listTotpEntries(masterPassword).isEmpty())
+    }
+
+    @Test
+    fun listTotpEntries_wrongMasterPassword_throws() = runTest {
+        VaultCrypto.ensureInitialized()
+        val file = VaultFile.createNew(masterPassword)
+        val session = VaultSession.unlock(file, masterPassword)
+        session.upsertTotpEntry(masterPassword, id = null, alias = "Anything", seed = "JBSWY3DPEHPK3PXP")
+
+        assertFailsWith<VaultDecryptionFailed> { session.listTotpEntries("wrong password entirely") }
     }
 
     @Test

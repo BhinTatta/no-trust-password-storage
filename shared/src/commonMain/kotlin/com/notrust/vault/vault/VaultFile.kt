@@ -18,7 +18,11 @@ import kotlinx.serialization.json.Json
  * the alias/site-name list encrypted under the (unwrapped) browse DEK;
  * [secretEntries] holds one independently-encrypted blob per entry,
  * encrypted under the (unwrapped) secrets DEK, so revealing one entry
- * never requires decrypting any other.
+ * never requires decrypting any other. [totpVault], when present, is a
+ * single blob (same secrets DEK) holding the whole list of standalone
+ * authenticator entries — it's a separate feature from password entries
+ * entirely, browsed as a list of its own once unlocked, not attached to
+ * any one [secretEntries] item.
  */
 @Serializable
 data class VaultFile(
@@ -29,7 +33,8 @@ data class VaultFile(
     val wrappedSecretsDek: EncryptedBox,
     val wrappedBrowseDek: EncryptedBox,
     val browseIndex: EncryptedBox,
-    val secretEntries: Map<String, EncryptedBox> = emptyMap()
+    val secretEntries: Map<String, EncryptedBox> = emptyMap(),
+    val totpVault: EncryptedBox? = null
 ) {
     fun toJson(): String = json.encodeToString(serializer(), this)
 
@@ -42,7 +47,8 @@ data class VaultFile(
             wrappedSecretsDek == other.wrappedSecretsDek &&
             wrappedBrowseDek == other.wrappedBrowseDek &&
             browseIndex == other.browseIndex &&
-            secretEntries == other.secretEntries
+            secretEntries == other.secretEntries &&
+            totpVault == other.totpVault
     }
 
     override fun hashCode(): Int {
@@ -53,6 +59,7 @@ data class VaultFile(
         result = 31 * result + wrappedBrowseDek.hashCode()
         result = 31 * result + browseIndex.hashCode()
         result = 31 * result + secretEntries.hashCode()
+        result = 31 * result + (totpVault?.hashCode() ?: 0)
         return result
     }
 

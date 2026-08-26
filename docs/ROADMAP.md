@@ -111,15 +111,22 @@
   deliberately not hand-rolled, unlike everything else here) so the
   actual HOTP/TOTP math, truncation, Base32, and URI parsing stay pure
   Kotlin and fully verified against the RFCs' own published vectors.
-- **TOTP seed entries alongside password entries, same secrets tier:
-  done.** Stored as `EntrySecrets.totpSeed` — exactly the pasted/scanned
-  text, re-parsed at reveal time — so it's master-password-gated,
-  encrypted, and carried along by import/export for free, with no
-  separate storage path. A biometric-only session never reaches it,
-  same as a password: the seed generates valid codes forever, so it
-  gets no less protection than the credential it backs.
-- **Live 6-digit code display only while the entry is in an active
-  reveal state: done.**
+- **A standalone authenticator feature, not attached to password
+  entries: done.** This isn't a field on a password entry — it's its own
+  peer destination (a "Codes" tab in the bottom nav, next to Vault), same
+  as any real authenticator app. `TotpEntry(id, alias, seed)` lives in its
+  own list, in its own encrypted blob (`VaultFile.totpVault`), same
+  secrets DEK as password entries but a completely separate read/write
+  path (`VaultSession.listTotpEntries`/`upsertTotpEntry`/`deleteTotpEntry`).
+  A biometric-only session never reaches it, same as a password: the seed
+  generates valid codes forever, so it gets no less protection than the
+  credential it might back — but *unlike* a password, the whole list
+  unlocks together with one master-password prompt per visit to the tab,
+  not a per-code reveal, since nothing further is disclosed per-code once
+  that prompt has already been answered.
+- **Live, always-ticking codes with a shrinking pie-timer per entry, an
+  optional alias (falls back to the QR's own issuer/label, or a generic
+  placeholder), and delete-with-confirmation: done.**
 - **QR scan + manual paste/import: done**, via CameraX + on-device ML
   Kit barcode decoding for the scan path, `TotpSeedParser` (accepts
   either a full `otpauth://totp/...` URI or a bare Base32 secret) for

@@ -5,7 +5,7 @@ package com.notrust.vault.totp
  * decoded to into a usable [TotpSpec] — accepts either a full
  * `otpauth://totp/...` URI or a bare Base32 secret (the "can't scan? type
  * this code instead" fallback almost every issuer also offers), in that
- * order. What's stored in [com.notrust.vault.model.EntrySecrets.totpSeed]
+ * order. What's stored in [com.notrust.vault.model.TotpEntry.seed]
  * is exactly the raw text this was given, verbatim — this same parser
  * runs again at reveal time to turn it back into a [TotpSpec], so nothing
  * about the original input (including a non-default algorithm/digits/

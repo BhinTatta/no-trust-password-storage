@@ -31,6 +31,24 @@ data class BrowseIndexItem(
 data class EntrySecrets(
     val username: String,
     val password: String,
-    val notes: String = "",
-    val totpSeed: String? = null
+    val notes: String = ""
+)
+
+/**
+ * A standalone authenticator entry — not attached to any password entry.
+ * Lives in its own encrypted blob in [com.notrust.vault.vault.VaultFile.totpVault],
+ * under the secrets tier, same as [EntrySecrets]: the seed generates valid
+ * codes forever, so a biometric-only session must never reach it either.
+ *
+ * [alias] is a short user-chosen label; when absent, the UI falls back to
+ * whatever [seed] parses to (issuer/account from an otpauth:// URI) or a
+ * generic placeholder. [seed] is stored verbatim — either a full
+ * `otpauth://totp/...` URI or a bare Base32 secret — and re-parsed by
+ * `TotpSeedParser` wherever it's used.
+ */
+@Serializable
+data class TotpEntry(
+    val id: String,
+    val alias: String? = null,
+    val seed: String
 )

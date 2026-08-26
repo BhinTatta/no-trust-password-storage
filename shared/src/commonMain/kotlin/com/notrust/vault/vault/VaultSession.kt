@@ -1,8 +1,10 @@
 package com.notrust.vault.vault
 
+import com.notrust.vault.crypto.EncryptedBox
 import com.notrust.vault.crypto.VaultCrypto
 import com.notrust.vault.model.BrowseIndexItem
 import com.notrust.vault.model.EntrySecrets
+import com.notrust.vault.model.TotpEntry
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
@@ -139,6 +141,79 @@ class VaultSession private constructor(
         file = file.copy(secretEntries = file.secretEntries - entryId)
         persistBrowseIndex()
         return file
+    }
+
+    // --- Standalone authenticator (TOTP) entries ---
+    //
+    // A completely separate feature from password entries: one list, one
+    // encrypted blob, browsed on its own screen. Same secrets DEK and same
+    // "master password required, every time, never cached" rule as
+    // [reveal]/[upsertSecret] above — a leaked seed generates valid codes
+    // forever, so it gets no less protection than the password it backs.
+
+    /** Decrypts and returns every saved authenticator entry. Empty if none have been added yet. */
+    fun listTotpEntries(masterPassword: String): List<TotpEntry> {
+        requireUnlocked()
+        val masterKey = VaultCrypto.deriveKey(masterPassword, file.salt, file.kdf)
+        try {
+            val secretsDek = VaultCrypto.unwrapKey(file.wrappedSecretsDek, masterKey)
+            try {
+                return decodeTotpEntries(secretsDek)
+            } finally {
+                VaultCrypto.wipe(secretsDek)
+            }
+        } finally {
+            VaultCrypto.wipe(masterKey)
+        }
+    }
+
+    /** Creates a new authenticator entry, or replaces an existing one if [id] matches one already saved. */
+    fun upsertTotpEntry(masterPassword: String, id: String?, alias: String?, seed: String): VaultFile {
+        requireUnlocked()
+        val entryId = id ?: VaultCrypto.newId()
+        val masterKey = VaultCrypto.deriveKey(masterPassword, file.salt, file.kdf)
+        try {
+            val secretsDek = VaultCrypto.unwrapKey(file.wrappedSecretsDek, masterKey)
+            try {
+                val updated = decodeTotpEntries(secretsDek).filterNot { it.id == entryId } +
+                    TotpEntry(entryId, alias, seed)
+                file = file.copy(totpVault = encodeTotpEntries(updated, secretsDek))
+            } finally {
+                VaultCrypto.wipe(secretsDek)
+            }
+        } finally {
+            VaultCrypto.wipe(masterKey)
+        }
+        return file
+    }
+
+    /** Deletes one authenticator entry. Still needs the master password — same tier as deleting/overwriting a password's secrets would. */
+    fun deleteTotpEntry(masterPassword: String, id: String): VaultFile {
+        requireUnlocked()
+        val masterKey = VaultCrypto.deriveKey(masterPassword, file.salt, file.kdf)
+        try {
+            val secretsDek = VaultCrypto.unwrapKey(file.wrappedSecretsDek, masterKey)
+            try {
+                val updated = decodeTotpEntries(secretsDek).filterNot { it.id == id }
+                file = file.copy(totpVault = encodeTotpEntries(updated, secretsDek))
+            } finally {
+                VaultCrypto.wipe(secretsDek)
+            }
+        } finally {
+            VaultCrypto.wipe(masterKey)
+        }
+        return file
+    }
+
+    private fun decodeTotpEntries(secretsDek: ByteArray): List<TotpEntry> {
+        val box = file.totpVault ?: return emptyList()
+        val plaintext = VaultCrypto.decrypt(box, secretsDek)
+        return Json.decodeFromString(ListSerializer(TotpEntry.serializer()), plaintext.decodeToString())
+    }
+
+    private fun encodeTotpEntries(entries: List<TotpEntry>, secretsDek: ByteArray): EncryptedBox {
+        val plaintext = Json.encodeToString(ListSerializer(TotpEntry.serializer()), entries).encodeToByteArray()
+        return VaultCrypto.encrypt(plaintext, secretsDek)
     }
 
     private fun upsertBrowseItem(item: BrowseIndexItem) {

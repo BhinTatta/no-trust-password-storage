@@ -35,19 +35,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.notrust.vault.android.ui.EntryIconBadge
 import com.notrust.vault.android.ui.theme.VaultColors
 import com.notrust.vault.android.ui.theme.VaultFieldShape
@@ -55,9 +52,6 @@ import com.notrust.vault.android.ui.theme.VaultLabelTextStyle
 import com.notrust.vault.android.ui.theme.vaultFieldColors
 import com.notrust.vault.model.BrowseIndexItem
 import com.notrust.vault.model.EntrySecrets
-import com.notrust.vault.totp.TotpCode
-import com.notrust.vault.totp.TotpSeedParser
-import kotlinx.coroutines.delay
 
 @Composable
 fun EntryDetailScreen(
@@ -69,7 +63,6 @@ fun EntryDetailScreen(
     onRevealRequest: (masterPassword: String) -> Unit,
     onCopyUsername: (String) -> Unit,
     onCopyPassword: (String) -> Unit,
-    onCopyTotpCode: (String) -> Unit,
     onEdit: (revealed: EntrySecrets) -> Unit,
     onDelete: () -> Unit,
     onBack: () -> Unit
@@ -135,8 +128,7 @@ fun EntryDetailScreen(
                     secrets = revealed,
                     remainingSeconds = remainingRevealSeconds,
                     onCopyUsername = onCopyUsername,
-                    onCopyPassword = onCopyPassword,
-                    onCopyTotpCode = onCopyTotpCode
+                    onCopyPassword = onCopyPassword
                 )
             }
         }
@@ -182,8 +174,7 @@ private fun RevealedSecrets(
     secrets: EntrySecrets,
     remainingSeconds: Int?,
     onCopyUsername: (String) -> Unit,
-    onCopyPassword: (String) -> Unit,
-    onCopyTotpCode: (String) -> Unit
+    onCopyPassword: (String) -> Unit
 ) {
     if (remainingSeconds != null) {
         Text(
@@ -198,84 +189,11 @@ private fun RevealedSecrets(
     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = VaultColors.Hairline)
     LabeledSecretRow(label = "Password", value = secrets.password, onCopy = onCopyPassword)
 
-    val totpSeed = secrets.totpSeed
-    if (totpSeed != null) {
-        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = VaultColors.Hairline)
-        TotpCodeRow(totpSeed = totpSeed, onCopy = onCopyTotpCode)
-    }
-
     if (secrets.notes.isNotBlank()) {
         Spacer(modifier = Modifier.height(20.dp))
         Text("Notes", style = MaterialTheme.typography.labelLarge, color = VaultColors.TextMuted)
         Text(secrets.notes, fontFamily = FontFamily.Monospace)
     }
-}
-
-/**
- * Live 6(-8)-digit authenticator code — only ever rendered from inside
- * [RevealedSecrets], i.e. only while this entry is in an active,
- * master-password-gated reveal, same as the username/password above it
- * and same as docs/ROADMAP.md's Phase 5 spec: TOTP never appears from a
- * biometric-only session, because the seed is at least as sensitive as
- * the password it protects — a leaked seed keeps generating valid codes
- * forever, not just once.
- */
-@Composable
-private fun TotpCodeRow(totpSeed: String, onCopy: (String) -> Unit) {
-    val spec = remember(totpSeed) { TotpSeedParser.parse(totpSeed) }
-    if (spec == null) {
-        Text(
-            "This entry's saved TOTP secret couldn't be read.",
-            color = VaultColors.Danger,
-            style = MaterialTheme.typography.bodyMedium
-        )
-        return
-    }
-
-    var code by remember(totpSeed) { mutableStateOf("") }
-    var secondsLeft by remember(totpSeed) { mutableStateOf(spec.periodSeconds) }
-    LaunchedEffect(totpSeed) {
-        while (true) {
-            val now = System.currentTimeMillis() / 1000
-            code = TotpCode.code(spec, now)
-            secondsLeft = TotpCode.secondsRemaining(spec, now)
-            delay(1000)
-        }
-    }
-
-    Column {
-        Text("Authenticator code", style = MaterialTheme.typography.labelLarge, color = VaultColors.TextMuted)
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                groupDigits(code),
-                fontFamily = FontFamily.Monospace,
-                fontSize = 28.sp,
-                color = VaultColors.Signal
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "${secondsLeft}s",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = VaultColors.TextMuted,
-                    modifier = Modifier.padding(end = 4.dp)
-                )
-                IconButton(onClick = { onCopy(code) }) {
-                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy authenticator code")
-                }
-            }
-        }
-    }
-}
-
-/** "123456" -> "123 456" — purely a readability aid, same idea as how phone numbers are grouped. */
-private fun groupDigits(code: String): String {
-    if (code.length < 6) return code
-    val mid = code.length / 2
-    return "${code.substring(0, mid)} ${code.substring(mid)}"
 }
 
 @Composable

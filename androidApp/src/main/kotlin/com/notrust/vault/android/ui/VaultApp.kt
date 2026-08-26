@@ -3,6 +3,7 @@ package com.notrust.vault.android.ui
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
@@ -34,7 +35,9 @@ import com.notrust.vault.android.DeviceIntegrity
 import com.notrust.vault.android.VaultKind
 import com.notrust.vault.android.VaultRepository
 import com.notrust.vault.android.copyThenAutoClear
+import com.notrust.vault.android.ui.screens.AddAuthenticatorScreen
 import com.notrust.vault.android.ui.screens.AddEditEntryScreen
+import com.notrust.vault.android.ui.screens.AuthenticatorScreen
 import com.notrust.vault.android.ui.screens.BrowseScreen
 import com.notrust.vault.android.ui.screens.CreateVaultScreen
 import com.notrust.vault.android.ui.screens.EntryDetailScreen
@@ -49,6 +52,7 @@ import com.notrust.vault.android.ui.theme.VaultColors
 import com.notrust.vault.crypto.VaultDecryptionFailed
 import com.notrust.vault.model.BrowseIndexItem
 import com.notrust.vault.model.EntrySecrets
+import com.notrust.vault.model.TotpEntry
 import com.notrust.vault.vault.BiometricKeyStore
 import com.notrust.vault.vault.VaultSession
 import kotlinx.coroutines.CoroutineScope
@@ -70,6 +74,8 @@ private sealed interface Screen {
     data object Settings : Screen
     data object Profile : Screen
     data object ImportExport : Screen
+    data object Authenticator : Screen
+    data object AddAuthenticator : Screen
 }
 
 @Composable
@@ -77,8 +83,19 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
     NoTrustVaultTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             val scope = rememberCoroutineScope()
+            val context = LocalContext.current
             var screen by remember { mutableStateOf<Screen>(Screen.Loading) }
             var session by remember { mutableStateOf<VaultSession?>(null) }
+            // The decrypted authenticator list and the master password that
+            // unlocked it — held only for as long as the Authenticator/
+            // AddAuthenticator flow stays on screen (cleared below the
+            // instant navigation leaves it, and on auto-lock), so adding a
+            // second code doesn't re-ask for the master password it was
+            // just given to view the first one. Same trust boundary as
+            // `revealed` secrets elsewhere: already gated by the master
+            // password, just held a little longer in memory.
+            var authenticatorEntries by remember { mutableStateOf<List<TotpEntry>?>(null) }
+            var authenticatorPassword by remember { mutableStateOf<String?>(null) }
             // Which on-disk file `session` currently belongs to — real or
             // decoy (see docs/SECURITY.md). Every save must go back to the
             // *same* file the session came from, or a decoy-mode edit would
@@ -105,6 +122,17 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                 screen = if (repository.exists()) Screen.Unlock else Screen.CreateVault
             }
 
+            // Leaving the Authenticator/AddAuthenticator flow (tab switch,
+            // back, or the auto-lock below) drops the cached master
+            // password and decrypted list right away — never held any
+            // longer than that flow is actually on screen.
+            LaunchedEffect(screen) {
+                if (screen !is Screen.Authenticator && screen !is Screen.AddAuthenticator) {
+                    authenticatorEntries = null
+                    authenticatorPassword = null
+                }
+            }
+
             // Auto-lock: leaving the app wipes the browse session and
             // drops back to Unlock. This never held secrets-tier material
             // anyway (docs/SECURITY.md) — only the browse index.
@@ -117,7 +145,9 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                         } else {
                             session?.lock()
                             session = null
-                            if (screen is Screen.Browse || screen is Screen.EntryDetail || screen is Screen.AddEdit || screen is Screen.Settings || screen is Screen.Profile || screen is Screen.ImportExport) {
+                            authenticatorEntries = null
+                            authenticatorPassword = null
+                            if (screen is Screen.Browse || screen is Screen.EntryDetail || screen is Screen.AddEdit || screen is Screen.Settings || screen is Screen.Profile || screen is Screen.ImportExport || screen is Screen.Authenticator || screen is Screen.AddAuthenticator) {
                                 screen = Screen.Unlock
                             }
                         }
@@ -323,7 +353,7 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                         onEdit = { secrets ->
                             screen = Screen.AddEdit(
                                 entryId = s.item.id,
-                                initial = EntryDraft(s.item.alias, s.item.siteName, secrets.username, secrets.password, secrets.notes, s.item.tags, s.item.iconOverride, secrets.totpSeed)
+                                initial = EntryDraft(s.item.alias, s.item.siteName, secrets.username, secrets.password, secrets.notes, s.item.tags, s.item.iconOverride)
                             )
                         },
                         onDeleted = { screen = Screen.Browse }
@@ -479,6 +509,77 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                         onBack = { screen = Screen.Settings }
                     )
                 }
+
+                Screen.Authenticator -> {
+                    val currentSession = checkNotNull(session) { "Authenticator reached with no unlocked session" }
+                    var isUnlocking by remember { mutableStateOf(false) }
+                    var unlockError by remember { mutableStateOf<String?>(null) }
+                    AuthenticatorScreen(
+                        entries = authenticatorEntries,
+                        isUnlocking = isUnlocking,
+                        unlockError = unlockError,
+                        onUnlock = { password ->
+                            scope.launch {
+                                isUnlocking = true
+                                unlockError = null
+                                try {
+                                    val list = withContext(Dispatchers.Default) { currentSession.listTotpEntries(password) }
+                                    authenticatorEntries = list
+                                    authenticatorPassword = password
+                                } catch (e: VaultDecryptionFailed) {
+                                    unlockError = "Wrong master password."
+                                } catch (e: Exception) {
+                                    unlockError = "Could not unlock authenticator codes: ${e.message}"
+                                } finally {
+                                    isUnlocking = false
+                                }
+                            }
+                        },
+                        onAddClick = { screen = Screen.AddAuthenticator },
+                        onDeleteEntry = { entry ->
+                            val masterPassword = checkNotNull(authenticatorPassword)
+                            scope.launch {
+                                withContext(Dispatchers.Default) { currentSession.deleteTotpEntry(masterPassword, entry.id) }
+                                repository.save(currentSession, vaultKind)
+                                authenticatorEntries = authenticatorEntries?.filterNot { it.id == entry.id }
+                            }
+                        },
+                        onCopyCode = { copyThenAutoClear(context, scope, "TOTP code", it) },
+                        bottomBar = { VaultBottomNavBar(current = screen, onNavigate = { screen = it }) }
+                    )
+                }
+
+                Screen.AddAuthenticator -> {
+                    val currentSession = checkNotNull(session) { "AddAuthenticator reached with no unlocked session" }
+                    val masterPassword = checkNotNull(authenticatorPassword) { "AddAuthenticator reached without an unlocked authenticator session" }
+                    var isSaving by remember { mutableStateOf(false) }
+                    var error by remember { mutableStateOf<String?>(null) }
+                    AddAuthenticatorScreen(
+                        isSaving = isSaving,
+                        errorMessage = error,
+                        onSave = { alias, seed ->
+                            scope.launch {
+                                isSaving = true
+                                error = null
+                                try {
+                                    withContext(Dispatchers.Default) {
+                                        currentSession.upsertTotpEntry(masterPassword, id = null, alias = alias, seed = seed)
+                                    }
+                                    repository.save(currentSession, vaultKind)
+                                    authenticatorEntries = withContext(Dispatchers.Default) { currentSession.listTotpEntries(masterPassword) }
+                                    screen = Screen.Authenticator
+                                } catch (e: VaultDecryptionFailed) {
+                                    error = "Wrong master password."
+                                } catch (e: Exception) {
+                                    error = "Could not save this authenticator: ${e.message}"
+                                } finally {
+                                    isSaving = false
+                                }
+                            }
+                        },
+                        onBack = { screen = Screen.Authenticator }
+                    )
+                }
             }
         }
     }
@@ -508,6 +609,13 @@ private fun VaultBottomNavBar(current: Screen, onNavigate: (Screen) -> Unit) {
             onClick = { onNavigate(Screen.Browse) },
             icon = { Icon(Icons.Default.Lock, contentDescription = null) },
             label = { Text("Vault") },
+            colors = itemColors
+        )
+        NavigationBarItem(
+            selected = current is Screen.Authenticator || current is Screen.AddAuthenticator,
+            onClick = { onNavigate(Screen.Authenticator) },
+            icon = { Icon(Icons.Default.Key, contentDescription = null) },
+            label = { Text("Codes") },
             colors = itemColors
         )
         NavigationBarItem(
@@ -590,7 +698,6 @@ private fun EntryDetailRoute(
         },
         onCopyUsername = { copyThenAutoClear(context, scope, "username", it) },
         onCopyPassword = { copyThenAutoClear(context, scope, "password", it) },
-        onCopyTotpCode = { copyThenAutoClear(context, scope, "TOTP code", it) },
         onEdit = onEdit,
         onDelete = {
             session.deleteEntry(item.id)
