@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- For scanning a TOTP QR code (Settings docs: nothing here ever
+         reaches the network — on-device decode only). Feature declared
+         not-required so the app still installs on a camera-less device;
+         scanning just won't be available there (manual paste still is). -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+
     <application
         android:allowBackup="false"
         android:label="@string/app_name"

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,6 +31,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -52,6 +55,7 @@ import com.notrust.vault.android.ui.theme.VaultLabelTextStyle
 import com.notrust.vault.android.ui.theme.VaultScreenTitleTextStyle
 import com.notrust.vault.android.ui.theme.vaultFieldColors
 import com.notrust.vault.model.EntrySecrets
+import com.notrust.vault.totp.TotpSeedParser
 import com.notrust.vault.vault.EntryIconCategory
 
 val PRESET_TAGS = listOf("Banking", "Work", "Google", "Social Media")
@@ -63,9 +67,15 @@ data class EntryDraft(
     val password: String,
     val notes: String,
     val tags: List<String> = emptyList(),
-    val iconOverride: String? = null
+    val iconOverride: String? = null,
+    // Whatever the user pasted or a QR code decoded to, verbatim — either
+    // a full otpauth://totp/... URI or a bare Base32 secret. Re-parsed by
+    // TotpSeedParser at reveal time; storing it raw (rather than some
+    // normalized form) means nothing about a non-default algorithm/digits/
+    // period from a real otpauth URI is ever lost.
+    val totpSeed: String? = null
 ) {
-    fun toSecrets() = EntrySecrets(username = username, password = password, notes = notes)
+    fun toSecrets() = EntrySecrets(username = username, password = password, notes = notes, totpSeed = totpSeed)
 }
 
 @Composable
@@ -91,6 +101,19 @@ fun AddEditEntryScreen(
     }
     var newTagText by remember { mutableStateOf("") }
     var iconOverride by remember { mutableStateOf(initial?.iconOverride) }
+    var totpSeedText by remember { mutableStateOf(initial?.totpSeed ?: "") }
+    var isScanningQr by remember { mutableStateOf(false) }
+
+    if (isScanningQr) {
+        QrScannerScreen(
+            onScanned = { scanned ->
+                totpSeedText = scanned
+                isScanningQr = false
+            },
+            onCancel = { isScanningQr = false }
+        )
+        return
+    }
 
     Scaffold(
         containerColor = VaultColors.Void,
@@ -241,6 +264,59 @@ fun AddEditEntryScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(20.dp))
+            Text("TWO-FACTOR (TOTP)", style = VaultLabelTextStyle.copy(color = VaultColors.TextMuted))
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "Optional. Scan the QR code your service shows for authenticator setup, or paste its secret key or otpauth:// link.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = VaultColors.TextMuted
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            OutlinedTextField(
+                value = totpSeedText,
+                onValueChange = { totpSeedText = it },
+                label = { Text("Secret key or otpauth:// link") },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                shape = VaultFieldShape,
+                colors = vaultFieldColors(),
+                trailingIcon = if (totpSeedText.isNotEmpty()) {
+                    {
+                        IconButton(onClick = { totpSeedText = "" }) {
+                            Icon(Icons.Default.Close, contentDescription = "Clear TOTP secret")
+                        }
+                    }
+                } else null,
+                modifier = Modifier.fillMaxWidth()
+            )
+            val totpParsed = remember(totpSeedText) { totpSeedText.takeIf { it.isNotBlank() }?.let { TotpSeedParser.parse(it) } }
+            val totpInvalid = totpSeedText.isNotBlank() && totpParsed == null
+            if (totpInvalid) {
+                Text(
+                    "Doesn't look like a valid secret key or otpauth:// link.",
+                    color = VaultColors.Danger,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            } else if (totpParsed != null) {
+                val preview = remember(totpSeedText) { TotpSeedParser.previewLabel(totpSeedText) }
+                Text(
+                    if (preview != null) "TOTP configured for $preview" else "TOTP secret configured",
+                    color = VaultColors.Signal,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            }
+            OutlinedButton(
+                onClick = { isScanningQr = true },
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
+            ) {
+                Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("SCAN QR CODE", style = VaultLabelTextStyle)
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
             Text(
                 "Saving needs your master password too — creating or editing a secret is as sensitive as viewing one.",
@@ -260,12 +336,13 @@ fun AddEditEntryScreen(
             }
 
             val canSave = alias.isNotBlank() && siteName.isNotBlank() && username.isNotBlank() &&
-                password.isNotBlank() && masterPassword.isNotBlank()
+                password.isNotBlank() && masterPassword.isNotBlank() && !totpInvalid
 
             Button(
                 onClick = {
                     val tags = (selectedPresets + customTags).toList()
-                    onSave(EntryDraft(alias.trim(), siteName.trim(), username, password, notes, tags, iconOverride), masterPassword)
+                    val totpSeed = totpSeedText.trim().ifEmpty { null }
+                    onSave(EntryDraft(alias.trim(), siteName.trim(), username, password, notes, tags, iconOverride, totpSeed), masterPassword)
                 },
                 enabled = !isSaving && canSave,
                 colors = ButtonDefaults.buttonColors(containerColor = VaultColors.Signal, contentColor = Color(0xFF00201C)),

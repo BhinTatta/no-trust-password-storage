@@ -104,9 +104,29 @@
   encrypted thumbnail.
 
 ### Phase 5 — Built-in authenticator (TOTP)
-- Add TOTP seed entries alongside password entries, same secrets tier
-  (master-password-gated reveal, same encrypted Drive sync).
-- Live 6-digit code display only while the entry is in an active reveal state.
+- **HOTP/TOTP core (shared, tested — RFC 4226 + RFC 6238 vectors for
+  SHA1/256/512, plus RFC 4648 Base32 and otpauth:// URI parsing): done.**
+  HMAC itself is the one platform-specific piece (`expect`/`actual`,
+  backed by `javax.crypto.Mac` on both `jvmMain` and `androidMain` —
+  deliberately not hand-rolled, unlike everything else here) so the
+  actual HOTP/TOTP math, truncation, Base32, and URI parsing stay pure
+  Kotlin and fully verified against the RFCs' own published vectors.
+- **TOTP seed entries alongside password entries, same secrets tier:
+  done.** Stored as `EntrySecrets.totpSeed` — exactly the pasted/scanned
+  text, re-parsed at reveal time — so it's master-password-gated,
+  encrypted, and carried along by import/export for free, with no
+  separate storage path. A biometric-only session never reaches it,
+  same as a password: the seed generates valid codes forever, so it
+  gets no less protection than the credential it backs.
+- **Live 6-digit code display only while the entry is in an active
+  reveal state: done.**
+- **QR scan + manual paste/import: done**, via CameraX + on-device ML
+  Kit barcode decoding for the scan path, `TotpSeedParser` (accepts
+  either a full `otpauth://totp/...` URI or a bare Base32 secret) for
+  paste/import. Like `AndroidBiometricKeyStore` and the Phase 4 camera
+  path above, this is the one part that's camera/device-integration
+  code that couldn't be exercised against a real camera in the
+  environment this was written in — expect it to need on-device iteration.
 
 ### Phase 6 — Audit & polish
 - Independent review of the crypto core (Argon2id params, envelope

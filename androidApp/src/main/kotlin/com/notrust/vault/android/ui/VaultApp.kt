@@ -323,7 +323,7 @@ fun VaultApp(repository: VaultRepository, biometricKeyStore: BiometricKeyStore) 
                         onEdit = { secrets ->
                             screen = Screen.AddEdit(
                                 entryId = s.item.id,
-                                initial = EntryDraft(s.item.alias, s.item.siteName, secrets.username, secrets.password, secrets.notes, s.item.tags, s.item.iconOverride)
+                                initial = EntryDraft(s.item.alias, s.item.siteName, secrets.username, secrets.password, secrets.notes, s.item.tags, s.item.iconOverride, secrets.totpSeed)
                             )
                         },
                         onDeleted = { screen = Screen.Browse }
@@ -590,6 +590,7 @@ private fun EntryDetailRoute(
         },
         onCopyUsername = { copyThenAutoClear(context, scope, "username", it) },
         onCopyPassword = { copyThenAutoClear(context, scope, "password", it) },
+        onCopyTotpCode = { copyThenAutoClear(context, scope, "TOTP code", it) },
         onEdit = onEdit,
         onDelete = {
             session.deleteEntry(item.id)

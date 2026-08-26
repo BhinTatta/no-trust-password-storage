@@ -66,4 +66,18 @@ dependencies {
     implementation("androidx.biometric:biometric:1.1.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
+    // TOTP QR scanning: CameraX for the preview/frame pipeline, ML Kit for
+    // on-device barcode decoding — nothing here ever leaves the device or
+    // touches the network, same as every other "scan" feature in this app.
+    // This, like AndroidBiometricKeyStore and the deferred OCR camera path
+    // (see docs/ROADMAP.md Phase 4), is camera/device-integration code that
+    // could not be exercised against a real camera in the environment this
+    // was written in — expect it to be the piece most likely to need
+    // on-device iteration.
+    implementation("androidx.camera:camera-core:1.3.4")
+    implementation("androidx.camera:camera-camera2:1.3.4")
+    implementation("androidx.camera:camera-lifecycle:1.3.4")
+    implementation("androidx.camera:camera-view:1.3.4")
+    implementation("com.google.mlkit:barcode-scanning:17.2.0")
 }
